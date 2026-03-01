@@ -1,0 +1,449 @@
+import os
+from PIL import Image
+import cv2
+import numpy as np
+
+# Ici les fonctions de manipulations, traitement des données
+
+path_mer = "../Data/Mer"
+path_Ailleurs = "../Data/Ailleurs"
+image_test = '../Data/Mer/js44.jpeg'
+resize_h, resize_l = 128, 128
+resize_grad = 16
+
+
+def resizeImage(imgPath: str, h: int, l: int) -> Image:
+    """
+    retourne l image retaillée (et la sauvegarde dans ../Data/Resized/) pour qu elle soit de taille h*l
+    """
+    img = Image.open(imgPath).convert('RGB')
+    img_resize = img.resize((h,l))
+    #name = os.path.splitext(os.path.basename(imgPath))[0] + '_resized.jpg'
+    #img_resize.save(f"../Data/Resized/{name}")
+    return img_resize
+
+
+def computeHisto(image: Image.Image):
+    """
+    calcule et retourne (et/ou stocke) l histogramme de couleurs 
+    de l image i, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    image.convert('RGB')
+    histo = image.histogram()
+    return histo
+
+
+def computeHistoHSV(image: Image.Image):
+    """
+    calcule et retourne l histogramme de couleurs 
+    de l image i en HSV, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    imageHSV = image.convert('HSV')
+    histo = imageHSV.histogram()
+    return histo
+
+
+def buildSampleFromPath (path1 :str,  path2 :str):
+    """
+    retourne  un  échantillon  S (list de dict)  de 
+    données issu des répertoires path1 (les données +1, avec paysage maritime) et 
+    path2 (les données -1, sans paysage maritime)
+    """
+    
+    data_res = []
+
+    #### data ailleurs ####
+    data_ailleurs = os.listdir(path1)
+    
+    for img in data_ailleurs:
+        
+        name_path = f"{path1}/{img}"
+        image128 = resizeImage(name_path, resize_h, resize_l)
+        image64 = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image128,
+                "X_histo" : computeHisto(image128),
+                "X_grad" : computeGradients(image64),
+                "X_histoHSV" : computeHistoHSV(image128),
+                "y_true_class" : -1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    
+    #### data mer ####
+    data_mer = os.listdir(path2)
+    
+    for img in data_mer:
+        
+        name_path = f"{path2}/{img}"
+        image128 = resizeImage(name_path, resize_h, resize_l)
+        image64 = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image128,
+                "X_histo" : computeHisto(image128),
+                "X_grad" : computeGradients(image64),
+                "X_histoHSV" : computeHistoHSV(image128),
+                "y_true_class" : 1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+
+def computeGradients(pil_image: Image.Image):
+    """
+    Calcule les matrices de magnitude et de direction des gradients
+    à partir d'un objet PIL Image.
+    """
+    # Convertir l'image PIL en niveaux de gris ('L') 
+    # puis en tableau NumPy pour OpenCV
+    img_gray = pil_image.convert('L')
+    img_array = np.array(img_gray)
+
+    grad_x = cv2.Sobel(img_array, cv2.CV_64F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(img_array, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Conversion en polaires (magnitude et direction)
+    magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
+
+    return magnitude, direction
+
+
+
+
+
+if __name__ == '__main__':
+    # S = buildSampleFromPath(path_Ailleurs, path_mer)
+    # print(S[0])
+    
+    # image64 = resizeImage('../Data/Mer/ra7jj.jpeg', 64, 64)
+    # magnetude, direction = computeGradients(image64)
+    # print(len(magnetude))
+    # # Pour voir les 5x5 premiers pixels de la matrice
+    # print("Extrait de la magnitude :\n", magnetude[:5, :5])
+    
+    # img = resizeImage('../Data/Mer/qhsrty65.jpg', 4,4)
+    # print(computeHistoHSV(img))
+    passfrom analysis import *
+from models import *
+from metrics import *
+
+NAIVE = {
+        "name" : "NaiveBayes",
+        "hyper_param" : {}
+    }
+
+KNN = {
+        "name" : "KNN",
+        "hyper_param" : {
+            "n_neighbors": 9
+        }
+    }
+ 
+SVC = { #TODO
+        "name" : "SVC",
+        "hyper_param" : {
+            "dual": False,
+            "max_iter": 5000,  # On donne plus de temps au modèle
+            "C": 0.0001 # Permet d'etre plus souple, moins d'over fit (Trouvé a tatons)
+        }
+    }
+     
+
+def hyper_param_research():
+    l = []
+    for i in range(1,200, 10):
+        model_to_test = KNeighborsClassifier(n_neighbors=i)
+        error_cv = err_real_cv(S, model_to_test) * 100
+        
+        l.append(error_cv)
+        
+        
+        print(f"{error_cv}% d'erreur par cross validation, n_neighbors: {i}")
+        
+        
+    print(min(l), l.index(min(l)))
+    
+    
+    return
+    
+    
+# Sample complet
+S = buildSampleFromPath(path_Ailleurs, path_mer)
+print("Nombre d'image dans le sample S : ", len(S))
+# Model entrainé avec S
+model = fitFrom(['X_histoHSV', 'X_histo'], S, SVC)
+
+print(f"err empirique : {err_empirique(S, model):.2%}")
+print(f"err reel      : {err_real_cv(S, model):.2%}")
+# print(predictFrom(S, model))
+
+
+
+
+
+
+import numpy as np
+from sklearn.model_selection import cross_val_score
+from models import extract_X, predictFrom
+
+# Ici les fonction d'evaluations des performances des models
+
+def err_empirique(S_train: list[dict], model_trained):
+    """
+    Calcule l'erreur empirique du modèle.
+    Retourne la proportion d'erreur sur une prediction.
+    Donc S_predicted est l'echantillon sur lequel
+    le model s'est entrainé puis a fait ses predictions.
+    """
+    nb_erreurs = 0
+    total = len(S_train)
+    # On fait les predictions avec le sample qui a appris le model
+    S_predicted = predictFrom(S_train, model_trained)
+    
+    # Pour chaque img on compare la prediction a 'y_true_class'
+    for img in S_predicted:
+        if img['y_true_class'] != img['y_predicted_class']:
+            nb_erreurs += 1
+            
+    return nb_erreurs / total
+
+
+def err_real_cv(S: list[dict], model_trained):
+    """
+    Calcule l'erreur réelle par validation croisée sur l'ensemble S.
+    """
+    # Préparation des données complètes (Conversion en NumPy pour le type-checker)
+    X_test = extract_X(model_trained.features, S)
+    # On applique la même normalisation qu'à l'entraînement
+    X_test_scaled = model_trained.scaler.transform(X_test)
+    y = np.array([img['y_true_class'] for img in S])
+    
+    # Cross-validation
+    # cross_val_score clone et entraîne sur différentes parties de X/y.
+    scores = cross_val_score(model_trained, X_test_scaled, y, cv=5)
+    
+    # Calcul de l'erreur
+    errors = 1 - scores
+    return errors.mean()
+    
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
+
+# Ici les fonctions d'entrainement, predictions des models
+# def extract_X(S: list[dict]):
+#     """Fonction utilitaire pour transformer une liste de dict en matrice X"""
+#     data_list = []
+#     for img in S:
+#         histo = np.array(img['X_histo'])
+#         mag, direc = img['X_grad']
+        
+#         features = np.concatenate([histo, mag.flatten(), direc.flatten()])
+#         data_list.append(features)
+    
+#     X =  np.array(data_list)
+#     #print(len(X), len(X[0]))
+#     return X
+
+
+def extract_X(features_to_use: list[str], S: list[dict]):
+    """
+    Créer X en fonction des features choisies.
+    Features possibles: ['X_histo', 'X_grad']
+    """
+    data_list = []
+    for img in S:
+        combined_features = []
+        
+        for feat in features_to_use:
+            if feat == 'X_grad':
+                # Pour les grad ons aplatit magnitude et direction
+                mag, direc = img['X_grad']
+                combined_features.extend(mag.flatten())
+                combined_features.extend(direc.flatten())
+            elif feat in ['X_histo', 'X_histoHSV']:
+                # Pour X_histo ou d'autres features directes (listes ou arrays) rien à faire
+                array = img[feat]
+                combined_features.extend(array)
+            else:
+                raise ValueError(f"Unsupported feature: {feat}")
+                    
+        data_list.append(combined_features)
+    
+    return np.array(data_list)
+
+
+def chooseAlgo(algo):
+    if algo['name'] == "NaiveBayes":
+        model = GaussianNB(**algo.get('hyper_param', {}))
+    elif algo['name'] == "KNN":
+        model = KNeighborsClassifier(**algo.get('hyper_param', {}))
+    elif algo['name'] == "SVC":
+        model = LinearSVC(**algo.get('hyper_param', {}))  
+    else:
+        raise ValueError(f"Unsupported algorithm: {algo['name']}")
+    
+    return model
+
+
+
+def fitFrom(features_to_use: list[str], S_train: list, algo: dict):
+    """
+    Entraîne un modèle en utilisant les features données (features_to_use).
+    """
+
+    # Caracteristique et cible
+    X_train = extract_X(features_to_use, S_train)
+    y_train = np.array([img['y_true_class'] for img in S_train])
+    
+    # NORMALISATION 
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    
+    model = chooseAlgo(algo)
+    # On creer un attribut features et scaler pour les retrouver plus tard
+    model.features = features_to_use
+    model.scaler = scaler
+    
+    # Entraînement
+    model.fit(X_train_scaled, y_train)
+    print(f"Entrainement terminé avec X = {features_to_use}")
+    return model
+
+
+# def fitFromAll(S_train: list, algo: dict):
+#     """
+#     Entraîne un modèle en utilisant l'histogramme ET les gradients.
+#     """
+
+#     # Caracteristique et cible
+#     X_train = extract_X(S_train)
+#     y_train = np.array([img['y_true_class'] for img in S_train])
+    
+#     model = chooseAlgo(algo)
+    
+#     # Entraînement
+#     model.fit(X_train, y_train)
+#     print("Entrainement terminé.")
+#     return model
+
+
+# def fitFromHisto(S_train: list, algo: dict):
+#     # Extract lists, np.array for matrix-like requirements
+#     X_train = np.array([img['X_histo'] for img in S_train])
+#     y_train = np.array([img['y_true_class'] for img in S_train])
+    
+#     # Choose the model (On devra ajouter tout les models de sklearn)
+#     if algo['name'] == "NaiveBayes":
+#         model = GaussianNB(**algo.get('hyper_param', {})) # ** to pass hyperparameters
+#     elif algo['name'] == "KNN":
+#         model = KNeighborsClassifier(**algo.get('hyper_param', {}))
+#     else:
+#         raise ValueError(f"Unsupported algorithm or hyper_param: {algo['name']}{algo['hyper_param']}")
+    
+    
+#     model.fit(X_train, y_train)
+    
+#     return model
+
+
+
+def predictFrom(S_test: list[dict], model):
+    """
+    Calcule la prédiction du modèle sur les données de S_test.
+    Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
+    """
+    X_test = extract_X(model.features , S_test)
+    # On applique la même normalisation qu'à l'entraînement
+    X_test_scaled = model.scaler.transform(X_test)
+    
+    predictions = model.predict(X_test_scaled)
+    
+    # Modif de S
+    # Zip pour parcourir simultanément les dictionnaires et les prédictions
+    for img, pred in zip(S_test, predictions):
+        img['y_predicted_class'] = int(pred)
+    
+    return S_test
+
+
+# def predictFromAll(S_test: list[dict], model):
+#     """
+#     Calcule la prédiction du modèle sur les données de S_test.
+#     Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
+#     """
+    
+#     X_test = extract_X(S_test)
+    
+#     predictions = model.predict(X_test)
+    
+#     # Modif de S
+#     # Zip pour parcourir simultanément les dictionnaires et les prédictions
+#     for img, pred in zip(S_test, predictions):
+#         img['y_predicted_class'] = int(pred)
+    
+#     return S_test
+
+
+# def predictFromHisto(S_test: list[dict], model):
+#     """
+#     Calcule la prédiction du modèle sur les données de S_test.
+#     Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
+#     """
+    
+#     # Extraction et conversion en np.array (car MatrixLike)
+#     X_val = np.array([img['X_histo'] for img in S_test])
+    
+#     # Calcul des prédictions
+#     predictions = model.predict(X_val)
+    
+#     # Modification de l'échantillon d'origine (en place)
+#     # Zip pour parcourir simultanément les dictionnaires et les prédictions
+#     for img, pred in zip(S_test, predictions):
+#         img['y_predicted_class'] = int(pred)
+    
+#     return S_test
+
+
+
+if __name__ == '__main__':
+    pass
+    # IA mer
+## Meilleur score :
+- model : 
+```python
+SVC = {
+    "name" : "SVC",
+    "hyper_param" : {
+        "dual": False,
+        "max_iter": 5000,  
+        "C": 0.0001 
+    }
+}
+```
+
+- X : 
+```python
+['X_histoHSV', 'X_histo']
+```
+
+- Params de resize :
+```python
+resize_h, resize_l = 128, 128
+resize_grad = 16
+```
+
+- Resultat :
+```bash
+- err empirique : 14.01%
+- err reel      : 20.76%
+```
