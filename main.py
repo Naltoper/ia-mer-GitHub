@@ -59,20 +59,40 @@ param_grid_SVC = {
 RFC = {
     "name": "RFC",
     "hyper_param": {
-        'max_depth': 10, 
-        'max_features': 'log2', 
-        'min_samples_leaf': 10, 
-        'min_samples_split': 2, 
-        'n_estimators': 50
-        }
+        'n_estimators': 200,          # more trees
+        'max_depth': None,            # allow deep trees
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',       # features considered at each split
+        'random_state': 42
+    }
 }
+
 param_grid_RFC = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [None, 5, 10, 15],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 5, 10],
-        'max_features': ['sqrt', 'log2']
-    }    
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
+
+# RFC = {
+#     "name": "RFC",
+#     "hyper_param": {
+#         'max_depth': 10, 
+#         'max_features': 'log2', 
+#         'min_samples_leaf': 10, 
+#         'min_samples_split': 2, 
+#         'n_estimators': 50
+#         }
+# }
+# param_grid_RFC = {
+#         'n_estimators': [50, 100, 200],
+#         'max_depth': [None, 5, 10, 15],
+#         'min_samples_split': [2, 5, 10],
+#         'min_samples_leaf': [1, 5, 10],
+#         'max_features': ['sqrt', 'log2']
+#     }    
    
    
 def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
