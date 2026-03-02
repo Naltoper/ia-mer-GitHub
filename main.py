@@ -10,19 +10,35 @@ NAIVE = {
         "hyper_param" : {}
     }
 
+# Improved KNN setup
 KNN = {
-        "name" : "KNN",
-        "hyper_param" : {
-            'metric': 'manhattan', 
-            'n_neighbors':25, 
-            'weights': 'uniform'
-            }
+    "name": "KNN",
+    "hyper_param": {
+        'n_neighbors': 7,            # smaller value works better for image embeddings
+        'weights': 'distance',       # closer neighbors count more
+        'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
     }
-param_grid_KNN = {
-    'n_neighbors': [25, 31, 41, 51], 
-    'weights': ['uniform'], 
-    'metric': ['euclidean', 'manhattan']
 }
+
+param_grid_KNN = {
+    'n_neighbors': [5, 7, 9, 11, 13],
+    'weights': ['uniform', 'distance'],
+    'metric': ['euclidean', 'manhattan', 'cosine']
+}
+
+# KNN = {
+#         "name" : "KNN",
+#         "hyper_param" : {
+#             'metric': 'manhattan', 
+#             'n_neighbors':25, 
+#             'weights': 'uniform'
+#             }
+#     }
+# param_grid_KNN = {
+#     'n_neighbors': [25, 31, 41, 51], 
+#     'weights': ['uniform'], 
+#     'metric': ['euclidean', 'manhattan']
+# }
  
 SVC = {
         "name" : "SVC",
