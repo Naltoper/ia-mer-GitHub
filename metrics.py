@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.model_selection import KFold, cross_val_score
 from models import extract_X, fitFrom, predictFrom
-from votePredict import votePredict
+from votePredict import votePredict3
 
 # Ici les fonction d'evaluations des performances des models
 
@@ -30,12 +30,12 @@ def err_real_cv(S: list[dict], model_trained):
     Calcule l'erreur réelle par validation croisée sur l'ensemble S.
     """
     # Préparation des données complètes (Conversion en NumPy pour le type-checker)
-    X_test = extract_X(model_trained.features, S)
+    X = extract_X(model_trained.features, S, model_trained, training=False)
     y = np.array([img['y_true_class'] for img in S])
     
     # Cross-validation
     # cross_val_score clone et entraîne sur différentes parties de X/y.
-    scores = cross_val_score(model_trained, X_test, y, cv=5)
+    scores = cross_val_score(model_trained, X, y, cv=5)
     
     # Calcul de l'erreur
     errors = 1 - scores
@@ -52,7 +52,7 @@ def err_empirique_vote(S_train: list[dict], model1, model2, model3):
     nb_erreurs = 0
     total = len(S_train)
     # On fait les predictions avec le sample qui a appris le model
-    S_predicted = votePredict(S_train, model1, model2, model3)
+    S_predicted = votePredict3(S_train, model1, model2, model3)
     
     # Pour chaque img on compare la prediction a 'y_true_class'
     for img in S_predicted:
@@ -83,7 +83,7 @@ def err_real_cv_vote(S: list[dict], algo1, algo2, algo3, features: list[str], cv
         m3 = fitFrom(features, S_train, algo3)
 
         # Prédiction par vote sur S_test
-        S_voted = votePredict(S_test, m1, m2, m3)
+        S_voted = votePredict3(S_test, m1, m2, m3)
 
         # Calcul de l'erreur sur ce fold
         nb_err = 0

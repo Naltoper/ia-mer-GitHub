@@ -98,28 +98,35 @@ def buildSampleFromPath (path1 :str,  path2 :str):
 
 def computeGradients(pil_image: Image.Image):
     """
-    Calcule les matrices de magnitude et de direction des gradients
-    à partir d'un objet PIL Image.
+    Calcule un histogramme des directions des gradients pondéré par la magnitude.
     """
-    # Convertir l'image PIL en niveaux de gris ('L') 
-    # puis en tableau NumPy pour OpenCV
     img_gray = pil_image.convert('L')
     img_array = np.array(img_gray)
 
+    # Calcul des gradients X et Y
     grad_x = cv2.Sobel(img_array, cv2.CV_64F, 1, 0, ksize=3)
     grad_y = cv2.Sobel(img_array, cv2.CV_64F, 0, 1, ksize=3)
 
-    # Conversion en polaires (magnitude et direction)
+    # Conversion en polaires (0 à 360 degrés)
     magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
-    
+
+    # Création de l'histogramme de direction (8 secteurs de 45°)
+    # On utilise np.histogram sur la matrice direction
+    # weights=magnitude permet de donner plus d'importance aux contours nets
+    histo_direction, _ = np.histogram(direction, bins=8, range=(0, 360), weights=magnitude)
+
+    # Normalisation pour que la taille de l'image n'influence pas les valeurs
+    if np.sum(histo_direction) > 0:
+        histo_direction = histo_direction / np.sum(histo_direction)
+
+    # On peut garder quelques stats globales en plus
     gradStats = [
-        np.mean(magnitude), 
-        np.std(magnitude), 
-        np.mean(direction), 
-        np.std(direction),
+        np.mean(magnitude) / 255.0, # Normalisé
+        np.std(magnitude) / 255.0
     ]
-    gradStats.extend(np.mean(magnitude, axis=1))
-    return gradStats
+    
+    # On combine les stats et l'histogramme (8 valeurs)
+    return gradStats + histo_direction.tolist()
 
 
 

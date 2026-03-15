@@ -24,8 +24,8 @@ param_grid_KNN = {
     'metric': ['euclidean', 'manhattan']
 }
  
-SVC = {
-        "name" : "SVC",
+LINEAR_SVC = {
+        "name" : "LinearSVC",
         "hyper_param" : {
             'C': 0.0001, 
             'dual': False, 
@@ -33,7 +33,7 @@ SVC = {
             'penalty': 'l2'
             }
     }
-param_grid_SVC = {
+param_grid_LINEAR_SVC = {
     'C': [0.00001, 0.0001, 0.001, 0.1], # contrôle la force de la régularisation
     'dual': [False], 
     'penalty': ['l2'],
@@ -120,16 +120,16 @@ features = ['X_grad', 'X_histoHSV', 'X_histo']
 
 
 # model1 = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
-model2 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, KNN)
-model3 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, SVC)
-model4 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, RFC)
+model2 = fitFrom(features, S, KNN)
+model3 = fitFrom(features, S, LINEAR_SVC)
+model4 = fitFrom(features, S, RFC)
 
-print(f"err empirique : {err_empirique_vote(S, model2, model3, model4):.2%}")
-print(f"err reel      : {err_real_cv_vote(S, KNN, SVC, RFC, features):.2%}")
+# print(f"err empirique : {err_empirique_vote(S, model2, model3, model4):.2%}")
+# print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
 
 
-# print(f"err empirique : {err_empirique(S, model4):.2%}")
-# print(f"err reel      : {err_real_cv(S, model4):.2%}")
+print(f"err empirique : {err_empirique(S, model4):.2%}")
+print(f"err reel      : {err_real_cv(S, model4):.2%}")
 
 
 

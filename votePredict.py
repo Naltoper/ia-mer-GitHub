@@ -2,7 +2,7 @@ import copy
 
 from models import predictFrom
 
-def votePredict(S: list[dict], model1, model2, model3) -> list[dict]:
+def votePredict3(S: list[dict], model1, model2, model3) -> list[dict]:
     """
     Effectue une prédiction basée sur le vote majoritaire de 3 modèles.
     Modifie S en place et met à jour 'y_predicted_class'.

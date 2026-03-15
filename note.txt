@@ -9,7 +9,7 @@ path_mer = "../Data/Mer"
 path_Ailleurs = "../Data/Ailleurs"
 image_test = '../Data/Mer/js44.jpeg'
 resize_h, resize_l = 128, 128
-resize_grad = 16
+resize_grad = 128
 
 
 def resizeImage(imgPath: str, h: int, l: int) -> Image:
@@ -111,8 +111,15 @@ def computeGradients(pil_image: Image.Image):
 
     # Conversion en polaires (magnitude et direction)
     magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
-
-    return magnitude, direction
+    
+    gradStats = [
+        np.mean(magnitude), 
+        np.std(magnitude), 
+        np.mean(direction), 
+        np.std(direction),
+    ]
+    gradStats.extend(np.mean(magnitude, axis=1))
+    return gradStats
 
 
 
@@ -133,6 +140,9 @@ if __name__ == '__main__':
     passfrom analysis import *
 from models import *
 from metrics import *
+from votePredict import *
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
 
 NAIVE = {
         "name" : "NaiveBayes",
@@ -142,47 +152,126 @@ NAIVE = {
 KNN = {
         "name" : "KNN",
         "hyper_param" : {
-            "n_neighbors": 9
-        }
+            'metric': 'manhattan', 
+            'n_neighbors':25, 
+            'weights': 'uniform'
+            }
     }
+param_grid_KNN = {
+    'n_neighbors': [25, 31, 41, 51], 
+    'weights': ['uniform'], 
+    'metric': ['euclidean', 'manhattan']
+}
  
-SVC = { #TODO
+SVC = {
         "name" : "SVC",
         "hyper_param" : {
-            "dual": False,
-            "max_iter": 5000,  # On donne plus de temps au modèle
-            "C": 0.0001 # Permet d'etre plus souple, moins d'over fit (Trouvé a tatons)
-        }
+            'C': 0.0001, 
+            'dual': False, 
+            'max_iter': 5000, 
+            'penalty': 'l2'
+            }
     }
-     
+param_grid_SVC = {
+    'C': [0.00001, 0.0001, 0.001, 0.1], # contrôle la force de la régularisation
+    'dual': [False], 
+    'penalty': ['l2'],
+    'max_iter': [5000, 10000]
+}
+   
+RFC = {
+    "name": "RFC",
+    "hyper_param": {
+        'max_depth': 10, 
+        'max_features': 'log2', 
+        'min_samples_leaf': 10, 
+        'min_samples_split': 2, 
+        'n_estimators': 50
+        }
+}
+param_grid_RFC = {
+        'n_estimators': [50, 100, 200],
+        'max_depth': [None, 5, 10, 15],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 5, 10],
+        'max_features': ['sqrt', 'log2']
+    }    
+   
+   
+def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
+    # On définit la grille des paramètres à tester
 
-def hyper_param_research():
-    l = []
-    for i in range(1,200, 10):
-        model_to_test = KNeighborsClassifier(n_neighbors=i)
-        error_cv = err_real_cv(S, model_to_test) * 100
-        
-        l.append(error_cv)
-        
-        
-        print(f"{error_cv}% d'erreur par cross validation, n_neighbors: {i}")
-        
-        
-    print(min(l), l.index(min(l)))
+    # On initialise le modèle de base
+
+    # On configure la recherche (cv=5 signifie qu'il divise tes 414 images en 5 morceaux)
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, 
+                            cv=5, scoring='accuracy', n_jobs=-1, verbose=1,
+                            return_train_score=True)
     
+    # On extrait X et y
+    X_train = extract_X(features_to_use, S)
+    y_train = np.array([img['y_true_class'] for img in S])
+
+    # On lance l'entraînement sur tes données (X_train, y_train)
+    grid_search.fit(X_train, y_train)
+
+    # On récupère les meilleurs paramètres
+    results = grid_search.cv_results_
+
+    best_idx = -1
+    best_score_robust = -1
     
-    return
+    # ON VEUT LES PARAM OPTIMAUX, PAS LES MEILLEURS
+    # On parcourt tous les tests effectués par GridSearchCV
+    for i in range(len(results['params'])):
+        mean_test = results['mean_test_score'][i]
+        mean_train = results['mean_train_score'][i]
+        gap = mean_train - mean_test
+        
+        # CRITÈRE D'OPTIMALITÉ : 
+        # On veut le meilleur score de test, 
+        # MAIS on ignore les modèles où l'overfit est trop violent (> 10%)
+        if gap < 0.10: 
+            if mean_test > best_score_robust:
+                best_score_robust = mean_test
+                best_idx = i
+
+    # Si aucun modèle n'est sous les 10% d'écart, on prend quand même le meilleur par défaut
+    if best_idx == -1:
+        best_idx = grid_search.best_index_
+
+    optimal_params = results['params'][best_idx]
+    
+    print("\n--- Paramètres Optimaux (Robustes) ---")
+    print(f"Paramètres : {optimal_params}")
+    print(f"Validation Score : {results['mean_test_score'][best_idx]:.2%}")
+    print(f"Overfit Gap : {(results['mean_train_score'][best_idx] - results['mean_test_score'][best_idx]):.2%}")
+    
+    return optimal_params
     
     
 # Sample complet
 S = buildSampleFromPath(path_Ailleurs, path_mer)
 print("Nombre d'image dans le sample S : ", len(S))
-# Model entrainé avec S
-model = fitFrom(['X_histoHSV', 'X_histo'], S, SVC)
+features = ['X_grad', 'X_histoHSV', 'X_histo']
 
-print(f"err empirique : {err_empirique(S, model):.2%}")
-print(f"err reel      : {err_real_cv(S, model):.2%}")
-# print(predictFrom(S, model))
+# hyper_param_research(features, S, RandomForestClassifier(), param_grid_RFC)
+
+
+# model1 = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
+model2 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, KNN)
+model3 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, SVC)
+model4 = fitFrom(['X_grad', 'X_histoHSV', 'X_histo'], S, RFC)
+
+print(f"err empirique : {err_empirique_vote(S, model2, model3, model4):.2%}")
+print(f"err reel      : {err_real_cv_vote(S, KNN, SVC, RFC, features):.2%}")
+
+
+# print(f"err empirique : {err_empirique(S, model4):.2%}")
+# print(f"err reel      : {err_real_cv(S, model4):.2%}")
+
+
+
 
 
 
@@ -190,8 +279,9 @@ print(f"err reel      : {err_real_cv(S, model):.2%}")
 
 
 import numpy as np
-from sklearn.model_selection import cross_val_score
-from models import extract_X, predictFrom
+from sklearn.model_selection import KFold, cross_val_score
+from models import extract_X, fitFrom, predictFrom
+from votePredict import votePredict
 
 # Ici les fonction d'evaluations des performances des models
 
@@ -221,56 +311,92 @@ def err_real_cv(S: list[dict], model_trained):
     """
     # Préparation des données complètes (Conversion en NumPy pour le type-checker)
     X_test = extract_X(model_trained.features, S)
-    # On applique la même normalisation qu'à l'entraînement
-    X_test_scaled = model_trained.scaler.transform(X_test)
     y = np.array([img['y_true_class'] for img in S])
     
     # Cross-validation
     # cross_val_score clone et entraîne sur différentes parties de X/y.
-    scores = cross_val_score(model_trained, X_test_scaled, y, cv=5)
+    scores = cross_val_score(model_trained, X_test, y, cv=5)
     
     # Calcul de l'erreur
     errors = 1 - scores
     return errors.mean()
     
+
+def err_empirique_vote(S_train: list[dict], model1, model2, model3):
+    """
+    Calcule l'erreur empirique du modèle.
+    Retourne la proportion d'erreur sur une prediction.
+    Donc S_predicted est l'echantillon sur lequel
+    le model s'est entrainé puis a fait ses predictions.
+    """
+    nb_erreurs = 0
+    total = len(S_train)
+    # On fait les predictions avec le sample qui a appris le model
+    S_predicted = votePredict(S_train, model1, model2, model3)
+    
+    # Pour chaque img on compare la prediction a 'y_true_class'
+    for img in S_predicted:
+        if img['y_true_class'] != img['y_predicted_class']:
+            nb_erreurs += 1
+            
+    return nb_erreurs / total
+
+
+def err_real_cv_vote(S: list[dict], algo1, algo2, algo3, features: list[str], cv=5):
+    """
+    Simule une validation croisée pour le système de vote.
+    'algo1, algo2, algo3' sont les dictionnaires de config (ex: SVC, KNN).
+    'features' est la liste des features à utiliser (ex: ['X_histo'])
+    """
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    S_np = np.array(S) # Pour faciliter le slicing
+    errors = []
+
+    for train_index, test_index in kf.split(S_np):
+        # Séparation Train / Test
+        S_train = S_np[train_index].tolist()
+        S_test = S_np[test_index].tolist()
+
+        # Entraînement des 3 modèles sur S_train
+        m1 = fitFrom(features, S_train, algo1)
+        m2 = fitFrom(features, S_train, algo2)
+        m3 = fitFrom(features, S_train, algo3)
+
+        # Prédiction par vote sur S_test
+        S_voted = votePredict(S_test, m1, m2, m3)
+
+        # Calcul de l'erreur sur ce fold
+        nb_err = 0
+        for img in S_voted:
+            # On compare y_true et y_predicted
+            if img['y_true_class'] != img['y_predicted_class']:
+                nb_err = nb_err + 1
+                
+        errors.append(nb_err / len(S_test))
+
+    return np.mean(errors)
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier
 
 # Ici les fonctions d'entrainement, predictions des models
-# def extract_X(S: list[dict]):
-#     """Fonction utilitaire pour transformer une liste de dict en matrice X"""
-#     data_list = []
-#     for img in S:
-#         histo = np.array(img['X_histo'])
-#         mag, direc = img['X_grad']
-        
-#         features = np.concatenate([histo, mag.flatten(), direc.flatten()])
-#         data_list.append(features)
-    
-#     X =  np.array(data_list)
-#     #print(len(X), len(X[0]))
-#     return X
-
+scaler = StandardScaler()
 
 def extract_X(features_to_use: list[str], S: list[dict]):
     """
     Créer X en fonction des features choisies.
     Features possibles: ['X_histo', 'X_grad']
+    Retourne un nparray scaled par un Scaler
     """
     data_list = []
     for img in S:
         combined_features = []
         
         for feat in features_to_use:
-            if feat == 'X_grad':
-                # Pour les grad ons aplatit magnitude et direction
-                mag, direc = img['X_grad']
-                combined_features.extend(mag.flatten())
-                combined_features.extend(direc.flatten())
-            elif feat in ['X_histo', 'X_histoHSV']:
+            if feat in ['X_histo', 'X_histoHSV', 'X_grad']:
                 # Pour X_histo ou d'autres features directes (listes ou arrays) rien à faire
                 array = img[feat]
                 combined_features.extend(array)
@@ -278,8 +404,12 @@ def extract_X(features_to_use: list[str], S: list[dict]):
                 raise ValueError(f"Unsupported feature: {feat}")
                     
         data_list.append(combined_features)
+        
+    X = np.array(data_list)
+    # NORMALISATION 
+    X_scaled = scaler.fit_transform(X)
     
-    return np.array(data_list)
+    return X_scaled
 
 
 def chooseAlgo(algo):
@@ -288,7 +418,9 @@ def chooseAlgo(algo):
     elif algo['name'] == "KNN":
         model = KNeighborsClassifier(**algo.get('hyper_param', {}))
     elif algo['name'] == "SVC":
-        model = LinearSVC(**algo.get('hyper_param', {}))  
+        model = LinearSVC(**algo.get('hyper_param', {})) 
+    elif algo['name'] == "RFC":
+        model = RandomForestClassifier(**algo.get('hyper_param', {})) 
     else:
         raise ValueError(f"Unsupported algorithm: {algo['name']}")
     
@@ -305,68 +437,26 @@ def fitFrom(features_to_use: list[str], S_train: list, algo: dict):
     X_train = extract_X(features_to_use, S_train)
     y_train = np.array([img['y_true_class'] for img in S_train])
     
-    # NORMALISATION 
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    
     model = chooseAlgo(algo)
-    # On creer un attribut features et scaler pour les retrouver plus tard
+    # On creer un attribut features pour les retrouver plus tard
     model.features = features_to_use
-    model.scaler = scaler
     
     # Entraînement
-    model.fit(X_train_scaled, y_train)
+    model.fit(X_train, y_train)
+    
     print(f"Entrainement terminé avec X = {features_to_use}")
+    print(f"Model : {algo['name']}")
     return model
-
-
-# def fitFromAll(S_train: list, algo: dict):
-#     """
-#     Entraîne un modèle en utilisant l'histogramme ET les gradients.
-#     """
-
-#     # Caracteristique et cible
-#     X_train = extract_X(S_train)
-#     y_train = np.array([img['y_true_class'] for img in S_train])
-    
-#     model = chooseAlgo(algo)
-    
-#     # Entraînement
-#     model.fit(X_train, y_train)
-#     print("Entrainement terminé.")
-#     return model
-
-
-# def fitFromHisto(S_train: list, algo: dict):
-#     # Extract lists, np.array for matrix-like requirements
-#     X_train = np.array([img['X_histo'] for img in S_train])
-#     y_train = np.array([img['y_true_class'] for img in S_train])
-    
-#     # Choose the model (On devra ajouter tout les models de sklearn)
-#     if algo['name'] == "NaiveBayes":
-#         model = GaussianNB(**algo.get('hyper_param', {})) # ** to pass hyperparameters
-#     elif algo['name'] == "KNN":
-#         model = KNeighborsClassifier(**algo.get('hyper_param', {}))
-#     else:
-#         raise ValueError(f"Unsupported algorithm or hyper_param: {algo['name']}{algo['hyper_param']}")
-    
-    
-#     model.fit(X_train, y_train)
-    
-#     return model
-
 
 
 def predictFrom(S_test: list[dict], model):
     """
-    Calcule la prédiction du modèle sur les données de S_test.
-    Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
+    Calcule la prédiction du modèle sur les données de S_test (sur les memes features que son entrainement).
+    Modifie S_test en place en ajoutant/mettant à jour 'y_predicted_class'.
     """
     X_test = extract_X(model.features , S_test)
-    # On applique la même normalisation qu'à l'entraînement
-    X_test_scaled = model.scaler.transform(X_test)
     
-    predictions = model.predict(X_test_scaled)
+    predictions = model.predict(X_test)
     
     # Modif de S
     # Zip pour parcourir simultanément les dictionnaires et les prédictions
@@ -376,74 +466,40 @@ def predictFrom(S_test: list[dict], model):
     return S_test
 
 
-# def predictFromAll(S_test: list[dict], model):
-#     """
-#     Calcule la prédiction du modèle sur les données de S_test.
-#     Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
-#     """
-    
-#     X_test = extract_X(S_test)
-    
-#     predictions = model.predict(X_test)
-    
-#     # Modif de S
-#     # Zip pour parcourir simultanément les dictionnaires et les prédictions
-#     for img, pred in zip(S_test, predictions):
-#         img['y_predicted_class'] = int(pred)
-    
-#     return S_test
-
-
-# def predictFromHisto(S_test: list[dict], model):
-#     """
-#     Calcule la prédiction du modèle sur les données de S_test.
-#     Modifie S_test en place en ajoutant/mettant à jour le champ 'y_predicted_class'.
-#     """
-    
-#     # Extraction et conversion en np.array (car MatrixLike)
-#     X_val = np.array([img['X_histo'] for img in S_test])
-    
-#     # Calcul des prédictions
-#     predictions = model.predict(X_val)
-    
-#     # Modification de l'échantillon d'origine (en place)
-#     # Zip pour parcourir simultanément les dictionnaires et les prédictions
-#     for img, pred in zip(S_test, predictions):
-#         img['y_predicted_class'] = int(pred)
-    
-#     return S_test
-
 
 
 if __name__ == '__main__':
     pass
-    # IA mer
-## Meilleur score :
-- model : 
-```python
-SVC = {
-    "name" : "SVC",
-    "hyper_param" : {
-        "dual": False,
-        "max_iter": 5000,  
-        "C": 0.0001 
-    }
-}
-```
+    import copy
 
-- X : 
-```python
-['X_histoHSV', 'X_histo']
-```
+from models import predictFrom
 
-- Params de resize :
-```python
-resize_h, resize_l = 128, 128
-resize_grad = 16
-```
+def votePredict(S: list[dict], model1, model2, model3) -> list[dict]:
+    """
+    Effectue une prédiction basée sur le vote majoritaire de 3 modèles.
+    Modifie S en place et met à jour 'y_predicted_class'.
+    """
+    
+    # On récupère les prédictions de chaque modèle séparément
+    res1 = predictFrom(copy.deepcopy(S), model1)
+    res2 = predictFrom(copy.deepcopy(S), model2)
+    res3 = predictFrom(copy.deepcopy(S), model3)
 
-- Resultat :
-```bash
-- err empirique : 14.01%
-- err reel      : 20.76%
-```
+    # On compare les résultats pour chaque image
+    for i in range(len(S)):
+        p1 = res1[i]['y_predicted_class']
+        p2 = res2[i]['y_predicted_class']
+        p3 = res3[i]['y_predicted_class']
+        
+        # Vote majoritaire : 
+        # Si on a deux +1, la somme sera >= 1
+        # Si on a deux -1, la somme sera <= -1
+        vote_final = 1 if (p1 + p2 + p3) >= 1 else -1
+        
+        # On met à jour l'échantillon original
+        S[i]['y_predicted_class'] = vote_final
+
+    return S
+
+if __name__ == '__main__':
+    pass
