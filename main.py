@@ -10,19 +10,35 @@ NAIVE = {
         "hyper_param" : {}
     }
 
+# Improved KNN setup
 KNN = {
-        "name" : "KNN",
-        "hyper_param" : {
-            'metric': 'manhattan', 
-            'n_neighbors':25, 
-            'weights': 'uniform'
-            }
+    "name": "KNN",
+    "hyper_param": {
+        'n_neighbors': 7,            # smaller value works better for image embeddings
+        'weights': 'distance',       # closer neighbors count more
+        'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
     }
-param_grid_KNN = {
-    'n_neighbors': [25, 31, 41, 51], 
-    'weights': ['uniform'], 
-    'metric': ['euclidean', 'manhattan']
 }
+
+param_grid_KNN = {
+    'n_neighbors': [5, 7, 9, 11, 13],
+    'weights': ['uniform', 'distance'],
+    'metric': ['euclidean', 'manhattan', 'cosine']
+}
+
+# KNN = {
+#         "name" : "KNN",
+#         "hyper_param" : {
+#             'metric': 'manhattan', 
+#             'n_neighbors':25, 
+#             'weights': 'uniform'
+#             }
+#     }
+# param_grid_KNN = {
+#     'n_neighbors': [25, 31, 41, 51], 
+#     'weights': ['uniform'], 
+#     'metric': ['euclidean', 'manhattan']
+# }
  
 LINEAR_SVC = {
         "name" : "LinearSVC",
@@ -43,20 +59,40 @@ param_grid_LINEAR_SVC = {
 RFC = {
     "name": "RFC",
     "hyper_param": {
-        'max_depth': 10, 
-        'max_features': 'log2', 
-        'min_samples_leaf': 10, 
-        'min_samples_split': 2, 
-        'n_estimators': 50
-        }
+        'n_estimators': 200,          # more trees
+        'max_depth': None,            # allow deep trees
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',       # features considered at each split
+        'random_state': 42
+    }
 }
+
 param_grid_RFC = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [None, 5, 10, 15],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 5, 10],
-        'max_features': ['sqrt', 'log2']
-    }    
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
+
+# RFC = {
+#     "name": "RFC",
+#     "hyper_param": {
+#         'max_depth': 10, 
+#         'max_features': 'log2', 
+#         'min_samples_leaf': 10, 
+#         'min_samples_split': 2, 
+#         'n_estimators': 50
+#         }
+# }
+# param_grid_RFC = {
+#         'n_estimators': [50, 100, 200],
+#         'max_depth': [None, 5, 10, 15],
+#         'min_samples_split': [2, 5, 10],
+#         'min_samples_leaf': [1, 5, 10],
+#         'max_features': ['sqrt', 'log2']
+#     }    
    
    
 def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
