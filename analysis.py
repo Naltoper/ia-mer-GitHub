@@ -7,6 +7,7 @@ import numpy as np
 
 path_mer = "../Data/Mer"
 path_Ailleurs = "../Data/Ailleurs"
+path_TEST = "../Data/TEST"
 image_test = '../Data/Mer/js44.jpeg'
 resize_h, resize_l = 128, 128
 resize_grad = 128
@@ -60,14 +61,14 @@ def buildSampleFromPath (path1 :str,  path2 :str):
     for img in data_ailleurs:
         
         name_path = f"{path1}/{img}"
-        image128 = resizeImage(name_path, resize_h, resize_l)
-        image64 = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
         
         img = { "name_path" : name_path,
-                "resized_image" : image128,
-                "X_histo" : computeHisto(image128),
-                "X_grad" : computeGradients(image64),
-                "X_histoHSV" : computeHistoHSV(image128),
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
                 "y_true_class" : -1,
                 "y_predicted_class" : None
                 }
@@ -80,14 +81,14 @@ def buildSampleFromPath (path1 :str,  path2 :str):
     for img in data_mer:
         
         name_path = f"{path2}/{img}"
-        image128 = resizeImage(name_path, resize_h, resize_l)
-        image64 = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
         
         img = { "name_path" : name_path,
-                "resized_image" : image128,
-                "X_histo" : computeHisto(image128),
-                "X_grad" : computeGradients(image64),
-                "X_histoHSV" : computeHistoHSV(image128),
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
                 "y_true_class" : 1,
                 "y_predicted_class" : None
                 }
@@ -95,6 +96,30 @@ def buildSampleFromPath (path1 :str,  path2 :str):
     
     return data_res
 
+# build S pour set melangé, avec trueclas = None, 
+def buildSampleFromPathTEST (path):
+    data_res = []
+
+    #### data sans true class ####
+    data = os.listdir(path)
+    
+    for img in data:
+        
+        name_path = f"{path}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : None,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
 
 def computeGradients(pil_image: Image.Image):
     """

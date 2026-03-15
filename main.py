@@ -1,9 +1,12 @@
+import joblib
+
 from analysis import *
 from models import *
 from metrics import *
 from votePredict import *
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
+import os
 
 NAIVE = {
         "name" : "NaiveBayes",
@@ -19,7 +22,6 @@ KNN = {
         'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
     }
 }
-
 param_grid_KNN = {
     'n_neighbors': [5, 7, 9, 11, 13],
     'weights': ['uniform', 'distance'],
@@ -67,7 +69,6 @@ RFC = {
         'random_state': 42
     }
 }
-
 param_grid_RFC = {
     'n_estimators': [100, 200, 300],
     'max_depth': [None, 10, 20],
@@ -127,7 +128,7 @@ def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_
         
         # CRITÈRE D'OPTIMALITÉ : 
         # On veut le meilleur score de test, 
-        # MAIS on ignore les modèles où l'overfit est trop violent (> 10%)
+        # MAIS on ignore les modèles où l'overfit est trop grand (> 10%)
         if gap < 0.10: 
             if mean_test > best_score_robust:
                 best_score_robust = mean_test
@@ -146,32 +147,120 @@ def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_
     
     return optimal_params
     
+def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
+    """
+    Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
+    """
+    # Calcul des prédictions via le vote majoritaire
+    # remplie 'y_predicted_class'
+    S_test = votePredict3(S_test, model_knn, model_svc, model_rfc)
+    
+    # footer
+    ee = 0.00  
+    er = 0.17  
+
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            # header
+            f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
+            f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)\n")
+            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
+            f.write("# Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
+            
+            # Liste des images et prédictions
+            for img in S_test:
+                # On extrait juste "image.jpg" du path
+                clean_name = os.path.basename(img['name_path'])
+                pred = img['y_predicted_class']
+                
+                # Formatage : Nom +1 ou Nom -1
+                pred_str = f"+{pred}" if pred > 0 else f"{pred}"
+                
+                f.write(f"{clean_name} {pred_str}\n")
+            
+            # Footer
+            f.write(f"# EE = {ee:.2f}\n")
+            f.write(f"# ER = {er:.2f}\n")
+
+        print(f"Fichier {filename} généré avec succès.")
+        
+    except Exception as e:
+        print(f"Erreur lors de l'écriture du fichier : {e}")
+    
     
 # Sample complet
-S = buildSampleFromPath(path_Ailleurs, path_mer)
-print("Nombre d'image dans le sample S : ", len(S))
-features = ['X_grad', 'X_histoHSV', 'X_histo']
+# S = buildSampleFromPath(path_Ailleurs, path_mer)
+# print("Nombre d'image dans le sample S : ", len(S))
+# features = ['X_grad', 'X_histoHSV', 'X_histo']
 
 # hyper_param_research(features, S, RandomForestClassifier(), param_grid_RFC)
 
+######## ENTRAINEMENT ###########################################################
 
-# model1 = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
-model2 = fitFrom(features, S, KNN)
-model3 = fitFrom(features, S, LINEAR_SVC)
-model4 = fitFrom(features, S, RFC)
+# model_naive = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
+# model_knn = fitFrom(features, S, KNN)
+# model_linearSVC = fitFrom(features, S, LINEAR_SVC)
+# model_rfc = fitFrom(features, S, RFC)
 
-# print(f"err empirique : {err_empirique_vote(S, model2, model3, model4):.2%}")
+######## SAUVEGARDE DES MODELS ###################################################
+
+# def save_models(models_dict, filename="models_roblof.joblib"):
+#     """ Sauvegarde un dictionnaire de modèles dans un fichier """
+#     joblib.dump(models_dict, filename)
+#     print(f"Modèles sauvegardés dans {filename}")
+
+# # --- Dans ton bloc principal ---
+# # Une fois les modèles entraînés :
+# mes_modeles = {
+#     'knn': model_knn,
+#     'svc': model_linearSVC,
+#     'rfc': model_rfc
+# }
+# save_models(mes_modeles)
+
+
+######## METRICS DES MODELS ###################################################
+
+# print(f"err empirique : {err_empirique_vote(S, model_knn, model_linearSVC, model_rfc):.2%}")
 # print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
 
-
-print(f"err empirique : {err_empirique(S, model4):.2%}")
-print(f"err reel      : {err_real_cv(S, model4):.2%}")
-
+# print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
+# print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
 
 
+######## TEST CC2 #############################################################
+
+# print(f"err empirique : {err_empirique_vote(S, model_knn, model_linearSVC, model_rfc):.2%}")
+# print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
+
+# print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
+# print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
 
 
+######## TEST CC2 #############################################################
+
+def load_models(filename="models_roblof.joblib"):
+    """ Charge les modèles depuis le fichier """
+    if os.path.exists(filename):
+        print(f"Chargement des modèles depuis {filename}...")
+        return joblib.load(filename)
+    else:
+        print("Erreur : Fichier de modèles introuvable !")
+        return None
 
 
+# Au lieu de fitFrom(), on charge directement :
+modeles_charges = load_models("models_roblof.joblib")
 
+if modeles_charges:
+    model_knn = modeles_charges['knn']
+    model_linearSVC = modeles_charges['svc']
+    model_rfc = modeles_charges['rfc']
+
+print("Test sur le sample inconnue...")
+S_TEST = buildSampleFromPathTEST(path_TEST)
+
+# generer le fichier pour cc2
+generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
+# TODO save le model pour pas savoir a entrainer a chaque fois
 
