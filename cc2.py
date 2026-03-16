@@ -38,14 +38,52 @@ def buildSampleFromPathTEST (path):
     
     return data_res
 
-
-######## SAUVEGARDE DES MODELS ###################################################
-
 def save_models(models_dict, filename="models_roblof.joblib"):
     """ Sauvegarde un dictionnaire de modèles dans un fichier """
     joblib.dump(models_dict, filename)
     print(f"Modèles sauvegardés dans {filename}")
 
+def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
+    """
+    Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
+    """
+    # Calcul des prédictions via le vote majoritaire
+    # remplie 'y_predicted_class'
+    S_test = votePredict3(S_test, model_knn, model_svc, model_rfc)
+    
+    # footer
+    ee = 0.00  
+    er = 0.17  
+
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            # header
+            f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
+            f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)\n")
+            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
+            f.write("# Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
+            
+            # Liste des images et prédictions
+            for img in S_test:
+                # On extrait juste "image.jpg" du path
+                clean_name = os.path.basename(img['name_path'])
+                pred = img['y_predicted_class']
+                
+                # Formatage : Nom +1 ou Nom -1
+                pred_str = f"+{pred}" if pred > 0 else f"{pred}"
+                
+                f.write(f"{clean_name} {pred_str}\n")
+            
+            # Footer
+            f.write(f"# EE = {ee:.2f}\n")
+            f.write(f"# ER = {er:.2f}\n")
+
+        print(f"Fichier {filename} généré avec succès.")
+        
+    except Exception as e:
+        print(f"Erreur lors de l'écriture du fichier : {e}")
+
+######## SAUVEGARDE DES MODELS ###################################################
 # Une fois les modèles entraînés :
 mes_modeles = {
     'knn': model_knn,

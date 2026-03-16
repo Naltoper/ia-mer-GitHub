@@ -1,12 +1,14 @@
 import joblib
-
 from analysis import *
 from models import *
 from metrics import *
 from votePredict import *
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 import os
+
+# 
 
 NAIVE = {
         "name" : "NaiveBayes",
@@ -28,19 +30,6 @@ param_grid_KNN = {
     'metric': ['euclidean', 'manhattan', 'cosine']
 }
 
-# KNN = {
-#         "name" : "KNN",
-#         "hyper_param" : {
-#             'metric': 'manhattan', 
-#             'n_neighbors':25, 
-#             'weights': 'uniform'
-#             }
-#     }
-# param_grid_KNN = {
-#     'n_neighbors': [25, 31, 41, 51], 
-#     'weights': ['uniform'], 
-#     'metric': ['euclidean', 'manhattan']
-# }
  
 LINEAR_SVC = {
         "name" : "LinearSVC",
@@ -76,25 +65,27 @@ param_grid_RFC = {
     'min_samples_leaf': [1, 2, 5],
     'max_features': ['sqrt', 'log2']
 }
-
-# RFC = {
-#     "name": "RFC",
-#     "hyper_param": {
-#         'max_depth': 10, 
-#         'max_features': 'log2', 
-#         'min_samples_leaf': 10, 
-#         'min_samples_split': 2, 
-#         'n_estimators': 50
-#         }
-# }
-# param_grid_RFC = {
-#         'n_estimators': [50, 100, 200],
-#         'max_depth': [None, 5, 10, 15],
-#         'min_samples_split': [2, 5, 10],
-#         'min_samples_leaf': [1, 5, 10],
-#         'max_features': ['sqrt', 'log2']
-#     }    
-   
+  
+GB = {
+    "name": "GB",
+    "hyper_param": {
+        'n_estimators': 200,
+        'learning_rate': 0.1,
+        'max_depth': 3,
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',
+        'random_state': 42
+    }
+}
+param_grid_GB = {
+    'n_estimators': [100, 200, 300],
+    'learning_rate': [0.01, 0.05, 0.1],
+    'max_depth': [3, 5, 7],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
    
 def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
     # On définit la grille des paramètres à tester
@@ -145,48 +136,7 @@ def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_
     print(f"Validation Score : {results['mean_test_score'][best_idx]:.2%}")
     print(f"Overfit Gap : {(results['mean_train_score'][best_idx] - results['mean_test_score'][best_idx]):.2%}")
     
-    return optimal_params
-    
-def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
-    """
-    Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
-    """
-    # Calcul des prédictions via le vote majoritaire
-    # remplie 'y_predicted_class'
-    S_test = votePredict3(S_test, model_knn, model_svc, model_rfc)
-    
-    # footer
-    ee = 0.00  
-    er = 0.17  
-
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            # header
-            f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
-            f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)\n")
-            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
-            f.write("# Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
-            
-            # Liste des images et prédictions
-            for img in S_test:
-                # On extrait juste "image.jpg" du path
-                clean_name = os.path.basename(img['name_path'])
-                pred = img['y_predicted_class']
-                
-                # Formatage : Nom +1 ou Nom -1
-                pred_str = f"+{pred}" if pred > 0 else f"{pred}"
-                
-                f.write(f"{clean_name} {pred_str}\n")
-            
-            # Footer
-            f.write(f"# EE = {ee:.2f}\n")
-            f.write(f"# ER = {er:.2f}\n")
-
-        print(f"Fichier {filename} généré avec succès.")
-        
-    except Exception as e:
-        print(f"Erreur lors de l'écriture du fichier : {e}")
-    
+    return optimal_params   
     
 # Sample complet
 # S = buildSampleFromPath(path_Ailleurs, path_mer)
@@ -202,21 +152,6 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 # model_linearSVC = fitFrom(features, S, LINEAR_SVC)
 # model_rfc = fitFrom(features, S, RFC)
 
-######## SAUVEGARDE DES MODELS ###################################################
-
-# def save_models(models_dict, filename="models_roblof.joblib"):
-#     """ Sauvegarde un dictionnaire de modèles dans un fichier """
-#     joblib.dump(models_dict, filename)
-#     print(f"Modèles sauvegardés dans {filename}")
-
-# # Une fois les modèles entraînés :
-# mes_modeles = {
-#     'knn': model_knn,
-#     'svc': model_linearSVC,
-#     'rfc': model_rfc
-# }
-# save_models(mes_modeles)
-
 
 ######## METRICS DES MODELS ###################################################
 
@@ -226,58 +161,3 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 # print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
 # print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
 
-
-######## TEST CC2 #############################################################0.22
-
-def load_models(filename="models_roblof.joblib"):
-    """ Charge les modèles depuis le fichier """
-    if os.path.exists(filename):
-        print(f"Chargement des modèles depuis {filename}...")
-        return joblib.load(filename)
-    else:
-        print("Erreur : Fichier de modèles introuvable !")
-        return None
-
-
-# Au lieu de fitFrom(), on charge directement :
-modeles_charges = load_models("models_roblof.joblib")
-
-if modeles_charges:
-    model_knn = modeles_charges['knn']
-    model_linearSVC = modeles_charges['svc']
-    model_rfc = modeles_charges['rfc']
-
-print("Test sur le sample inconnue...")
-S_TEST = buildSampleFromPathTEST(path_TEST)
-
-# generer le fichier pour cc2
-generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
-# TODO save le model pour pas savoir a entrainer a chaque fois
-
-
-
-######## FUTUR AJOUT DE MODEL #################################################
-
-# from sklearn.ensemble import GradientBoostingClassifier
-
-# GB = {
-#     "name": "GB",
-#     "hyper_param": {
-#         'n_estimators': 200,
-#         'learning_rate': 0.1,
-#         'max_depth': 3,
-#         'min_samples_split': 2,
-#         'min_samples_leaf': 1,
-#         'max_features': 'sqrt',
-#         'random_state': 42
-#     }
-# }
-
-# param_grid_GB = {
-#     'n_estimators': [100, 200, 300],
-#     'learning_rate': [0.01, 0.05, 0.1],
-#     'max_depth': [3, 5, 7],
-#     'min_samples_split': [2, 5, 10],
-#     'min_samples_leaf': [1, 2, 5],
-#     'max_features': ['sqrt', 'log2']
-# }
