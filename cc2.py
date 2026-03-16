@@ -1,17 +1,4 @@
-from main import *
-
-# Sample complet
-S = buildSampleFromPath(path_Ailleurs, path_mer)
-print("Nombre d'image dans le sample S : ", len(S))
-features = ['X_grad', 'X_histoHSV', 'X_histo']
-
-######## ENTRAINEMENT ###########################################################
-
-# model_naive = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
-# model_knn = fitFrom(features, S, KNN)
-# model_linearSVC = fitFrom(features, S, LINEAR_SVC)
-# model_rfc = fitFrom(features, S, RFC)
-
+from config import *
 
 # Build S pour Dataset melangé, avec trueclas = None, 
 def buildSampleFromPathTEST (path):
@@ -42,6 +29,15 @@ def save_models(models_dict, filename="models_roblof.joblib"):
     """ Sauvegarde un dictionnaire de modèles dans un fichier """
     joblib.dump(models_dict, filename)
     print(f"Modèles sauvegardés dans {filename}")
+
+def load_models(filename="models_roblof.joblib"):
+    """ Charge les modèles depuis le fichier """
+    if os.path.exists(filename):
+        print(f"Chargement des modèles depuis {filename}...")
+        return joblib.load(filename)
+    else:
+        print("Erreur : Fichier de modèles introuvable !")
+        return None
 
 def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
     """
@@ -83,6 +79,22 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
     except Exception as e:
         print(f"Erreur lors de l'écriture du fichier : {e}")
 
+
+# Sample complet
+S = buildSampleFromPath(path_Ailleurs, path_mer)
+print("Nombre d'image dans le sample S : ", len(S))
+features = ['X_grad', 'X_histoHSV', 'X_histo']
+
+
+######## ENTRAINEMENT ###########################################################
+# model_naive = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
+# model_knn = fitFrom(features, S, KNN)
+# model_linearSVC = fitFrom(features, S, LINEAR_SVC)
+# model_rfc = fitFrom(features, S, RFC)
+
+
+
+
 ######## SAUVEGARDE DES MODELS ###################################################
 # Une fois les modèles entraînés :
 mes_modeles = {
@@ -95,14 +107,6 @@ mes_modeles = {
 
 ######## TEST CC2 #############################################################0.22
 
-def load_models(filename="models_roblof.joblib"):
-    """ Charge les modèles depuis le fichier """
-    if os.path.exists(filename):
-        print(f"Chargement des modèles depuis {filename}...")
-        return joblib.load(filename)
-    else:
-        print("Erreur : Fichier de modèles introuvable !")
-        return None
 
 
 # Au lieu de fitFrom(), on charge directement :

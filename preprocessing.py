@@ -153,7 +153,7 @@ def computeGradients(pil_image: Image.Image):
     # On combine les stats et l'histogramme (8 valeurs)
     return gradStats + histo_direction.tolist()
 
-
+# rename preprocessing
 
 
 

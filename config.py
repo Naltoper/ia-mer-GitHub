@@ -1,5 +1,5 @@
 import joblib
-from analysis import *
+from preprocessing import *
 from models import *
 from metrics import *
 from votePredict import *
@@ -30,7 +30,6 @@ param_grid_KNN = {
     'metric': ['euclidean', 'manhattan', 'cosine']
 }
 
- 
 LINEAR_SVC = {
         "name" : "LinearSVC",
         "hyper_param" : {
@@ -86,6 +85,7 @@ param_grid_GB = {
     'min_samples_leaf': [1, 2, 5],
     'max_features': ['sqrt', 'log2']
 }
+   
    
 def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
     # On définit la grille des paramètres à tester
