@@ -252,3 +252,32 @@ S_TEST = buildSampleFromPathTEST(path_TEST)
 
 # generer le fichier pour cc2
 generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
+# TODO save le model pour pas savoir a entrainer a chaque fois
+
+
+
+######## FUTUR AJOUT DE MODEL #################################################
+
+# from sklearn.ensemble import GradientBoostingClassifier
+
+# GB = {
+#     "name": "GB",
+#     "hyper_param": {
+#         'n_estimators': 200,
+#         'learning_rate': 0.1,
+#         'max_depth': 3,
+#         'min_samples_split': 2,
+#         'min_samples_leaf': 1,
+#         'max_features': 'sqrt',
+#         'random_state': 42
+#     }
+# }
+
+# param_grid_GB = {
+#     'n_estimators': [100, 200, 300],
+#     'learning_rate': [0.01, 0.05, 0.1],
+#     'max_depth': [3, 5, 7],
+#     'min_samples_split': [2, 5, 10],
+#     'min_samples_leaf': [1, 2, 5],
+#     'max_features': ['sqrt', 'log2']
+# }
