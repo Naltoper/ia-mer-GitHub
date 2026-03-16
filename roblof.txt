@@ -2,62 +2,101 @@
 # Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)
 # KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)
 # Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB
-gthi71.jpeg -1
-grouwz.jpeg -1
-download (17).jpeg -1
-irk0ty.jpeg -1
-gfotr5.jpeg -1
-hif9.jpeg -1
-bsurfmm.jpeg +1
-download (10).jpeg -1
-hhhhh.jpeg -1
-download (7).jpeg -1
-download (12).jpeg -1
-download (11).jpeg -1
-jezerty.jpeg -1
-ju.jpeg -1
-flsd.jpeg -1
-fr5323.jpeg -1
-icej.jpeg -1
-fi674523.jpeg -1
-ghufg.jpeg -1
-eih561.jpeg -1
-download (13).jpeg -1
-jhjhj.jpeg -1
-download (30).jpeg -1
-download (21).jpeg -1
-f5.jpeg -1
-download (32).jpeg -1
-fff77.jpeg -1
-dp96v.jpeg -1
-download (14).jpeg -1
-hgytrp.jpeg -1
-koaq.jpeg -1
-fori8bA.jpeg -1
-Kin88.jpeg -1
-epm0b.jpeg -1
-lkh87v.jpeg -1
-download (20).jpeg -1
-l12wq7.jpeg -1
-droujo.jpeg -1
-download (22).jpeg -1
-download (28).jpeg -1
-ga78hb.jpeg -1
-gtyyu.jpeg -1
-hzapc6.jpeg -1
-download (33).jpeg -1
-ff1a.jpeg -1
-kijuerg9.jpeg -1
-fffgh.jpeg -1
-download (25).jpeg -1
-lig61.jpeg -1
-kijuju.jpeg -1
-download (24).jpeg -1
-iuj.jpeg -1
-download (8).jpeg -1
-download (9).jpeg -1
-hyg.jpeg -1
-ff.jpeg -1
-fqwwzm.jpeg -1
+mhst.jpg +1
+xs.jpeg +1
+q9.jpeg +1
+q8.jpeg +1
+hounn34.jpg +1
+nxooz.jpg -1
+ppa11.jpg +1
+cxvhyy.jpg +1
+tr0mp.jpg +1
+do.jpeg -1
+gotya.jpeg +1
+lkpa.jpg +1
+dfe.jpg -1
+mm.jpeg -1
+q1.jpeg -1
+t1.jpeg +1
+spme.jpg +1
+ut.jpeg +1
+bbhhy.jpg +1
+sm7r.jpg +1
+hu.jpeg +1
+tptp.jpg -1
+vvZ1.jpg +1
+ju.jpeg +1
+mpzva.jpg +1
+swuia.jpg -1
+q3.jpeg -1
+q11.jpeg +1
+cCx9.jpg -1
+pm09.jpg -1
+bbbj66.jpg +1
+loab.jpg -1
+q12.jpeg +1
+kp0x2.jpg +1
+nirrz.jpg +1
+vbfg.JPG -1
+zq.jpeg +1
+hshs2.jpg -1
+groby.jpg +1
+xsoua.jpg +1
+gaqll.jpg -1
+ft.jpeg -1
+ppqgq.jpg -1
+za.jpeg +1
+youpi.jpg -1
+bezss.JPG -1
+kuja1.jpg -1
+wq.jpeg -1
+mpha44w.jpg +1
+rddq.jpg +1
+q4.jpeg -1
+kwqq2g.jpeg +1
+sqzz.jpg +1
+njuu.jpg +1
+eraq.jpg +1
+wsqwx.jpg -1
+tu.jpeg -1
+dspv6.jpg +1
+ksnw5.jpg +1
+ljuucxs.jpg +1
+dg.jpeg +1
+mdouu.jpeg -1
+q10.jpeg +1
+lityn.jpg -1
+oohh.jpg -1
+uu.jpeg +1
+nz.jpeg +1
+loupiz.jpeg +1
+q5.jpeg -1
+zd.jpeg +1
+ct.jpeg +1
+wtgt1n.jpg +1
+q6.jpeg +1
+wmzp.jpg +1
+ww.jpeg -1
+q2.jpeg -1
+grate.jpg +1
+mc76.jpg +1
+pooi.jpeg +1
+nwghg.jpg -1
+sql.jpg +1
+ppp08.jpg +1
+09hy.jpg +1
+q7.jpeg +1
+dden.jpg +1
+mlpp.jpg -1
+y6.jpeg +1
+w0.jpg +1
+lp.jpeg -1
+btr.jpg +1
+wxaa.jpeg +1
+fe.jpeg -1
+derz.jpg -1
+se.jpeg +1
+hg.jpeg +1
+phao.JPG +1
 # EE = 0.00
 # ER = 0.17

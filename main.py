@@ -209,7 +209,6 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 #     joblib.dump(models_dict, filename)
 #     print(f"Modèles sauvegardés dans {filename}")
 
-# # --- Dans ton bloc principal ---
 # # Une fois les modèles entraînés :
 # mes_modeles = {
 #     'knn': model_knn,
@@ -228,16 +227,7 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 # print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
 
 
-######## TEST CC2 #############################################################
-
-# print(f"err empirique : {err_empirique_vote(S, model_knn, model_linearSVC, model_rfc):.2%}")
-# print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
-
-# print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
-# print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
-
-
-######## TEST CC2 #############################################################
+######## TEST CC2 #############################################################0.22
 
 def load_models(filename="models_roblof.joblib"):
     """ Charge les modèles depuis le fichier """
@@ -262,5 +252,3 @@ S_TEST = buildSampleFromPathTEST(path_TEST)
 
 # generer le fichier pour cc2
 generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
-# TODO save le model pour pas savoir a entrainer a chaque fois
-
