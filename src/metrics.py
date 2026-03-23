@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.model_selection import KFold, cross_val_score
-from models import extract_X, fitFrom, predictFrom
-from votePredict import votePredict3
+from src.models import extract_X, fitFrom, predictFrom
+from src.votePredict import votePredict3
 
 # Ici les fonction d'evaluations des performances des models
 

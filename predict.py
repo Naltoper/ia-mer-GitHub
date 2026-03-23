@@ -1,4 +1,4 @@
-from config import *
+from src.config import *
 
 # Build S pour Dataset melangé, avec trueclas = None, 
 def buildSampleFromPathTEST (path):

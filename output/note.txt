@@ -1,103 +1,7 @@
-==> analysis.py <==
-import os
-from PIL import Image
-import cv2
-import numpy as np
+==> cc2.py <==
+from config import *
 
-# Ici les fonctions de manipulations, traitement des données
-
-path_mer = "../Data/Mer"
-path_Ailleurs = "../Data/Ailleurs"
-path_TEST = "../Data/TEST"
-image_test = '../Data/Mer/js44.jpeg'
-resize_h, resize_l = 128, 128
-resize_grad = 128
-
-
-def resizeImage(imgPath: str, h: int, l: int) -> Image:
-    """
-    retourne l image retaillée (et la sauvegarde dans ../Data/Resized/) pour qu elle soit de taille h*l
-    """
-    img = Image.open(imgPath).convert('RGB')
-    img_resize = img.resize((h,l))
-    #name = os.path.splitext(os.path.basename(imgPath))[0] + '_resized.jpg'
-    #img_resize.save(f"../Data/Resized/{name}")
-    return img_resize
-
-
-def computeHisto(image: Image.Image):
-    """
-    calcule et retourne (et/ou stocke) l histogramme de couleurs 
-    de l image i, à l aide de la librairie PIL
-    return le nombre de pixel de chaque niveau de rouge, vert, bleu
-    """
-    image.convert('RGB')
-    histo = image.histogram()
-    return histo
-
-
-def computeHistoHSV(image: Image.Image):
-    """
-    calcule et retourne l histogramme de couleurs 
-    de l image i en HSV, à l aide de la librairie PIL
-    return le nombre de pixel de chaque niveau de rouge, vert, bleu
-    """
-    imageHSV = image.convert('HSV')
-    histo = imageHSV.histogram()
-    return histo
-
-
-def buildSampleFromPath (path1 :str,  path2 :str):
-    """
-    retourne  un  échantillon  S (list de dict)  de 
-    données issu des répertoires path1 (les données +1, avec paysage maritime) et 
-    path2 (les données -1, sans paysage maritime)
-    """
-    
-    data_res = []
-
-    #### data ailleurs ####
-    data_ailleurs = os.listdir(path1)
-    
-    for img in data_ailleurs:
-        
-        name_path = f"{path1}/{img}"
-        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
-        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
-        
-        img = { "name_path" : name_path,
-                "resized_image" : image_resized_histo,
-                "X_histo" : computeHisto(image_resized_histo),
-                "X_grad" : computeGradients(image_resized_grad),
-                "X_histoHSV" : computeHistoHSV(image_resized_histo),
-                "y_true_class" : -1,
-                "y_predicted_class" : None
-                }
-        data_res.append(img)
-    
-    
-    #### data mer ####
-    data_mer = os.listdir(path2)
-    
-    for img in data_mer:
-        
-        name_path = f"{path2}/{img}"
-        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
-        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
-        
-        img = { "name_path" : name_path,
-                "resized_image" : image_resized_histo,
-                "X_histo" : computeHisto(image_resized_histo),
-                "X_grad" : computeGradients(image_resized_grad),
-                "X_histoHSV" : computeHistoHSV(image_resized_histo),
-                "y_true_class" : 1,
-                "y_predicted_class" : None
-                }
-        data_res.append(img)
-    
-    return data_res
-
-# build S pour set melangé, avec trueclas = None, 
+# Build S pour Dataset melangé, avec trueclas = None, 
 def buildSampleFromPathTEST (path):
     data_res = []
 
@@ -122,205 +26,20 @@ def buildSampleFromPathTEST (path):
     
     return data_res
 
-def computeGradients(pil_image: Image.Image):
-    """
-    Calcule un histogramme des directions des gradients pondéré par la magnitude.
-    """
-    img_gray = pil_image.convert('L')
-    img_array = np.array(img_gray)
+def save_models(models_dict, filename="models_roblof.joblib"):
+    """ Sauvegarde un dictionnaire de modèles dans un fichier """
+    joblib.dump(models_dict, filename)
+    print(f"Modèles sauvegardés dans {filename}")
 
-    # Calcul des gradients X et Y
-    grad_x = cv2.Sobel(img_array, cv2.CV_64F, 1, 0, ksize=3)
-    grad_y = cv2.Sobel(img_array, cv2.CV_64F, 0, 1, ksize=3)
+def load_models(filename="models_roblof.joblib"):
+    """ Charge les modèles depuis le fichier """
+    if os.path.exists(filename):
+        print(f"Chargement des modèles depuis {filename}...")
+        return joblib.load(filename)
+    else:
+        print("Erreur : Fichier de modèles introuvable !")
+        return None
 
-    # Conversion en polaires (0 à 360 degrés)
-    magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
-
-    # Création de l'histogramme de direction (8 secteurs de 45°)
-    # On utilise np.histogram sur la matrice direction
-    # weights=magnitude permet de donner plus d'importance aux contours nets
-    histo_direction, _ = np.histogram(direction, bins=8, range=(0, 360), weights=magnitude)
-
-    # Normalisation pour que la taille de l'image n'influence pas les valeurs
-    if np.sum(histo_direction) > 0:
-        histo_direction = histo_direction / np.sum(histo_direction)
-
-    # On peut garder quelques stats globales en plus
-    gradStats = [
-        np.mean(magnitude) / 255.0, # Normalisé
-        np.std(magnitude) / 255.0
-    ]
-    
-    # On combine les stats et l'histogramme (8 valeurs)
-    return gradStats + histo_direction.tolist()
-
-
-
-
-
-if __name__ == '__main__':
-    # S = buildSampleFromPath(path_Ailleurs, path_mer)
-    # print(S[0])
-    
-    # image64 = resizeImage('../Data/Mer/ra7jj.jpeg', 64, 64)
-    # magnetude, direction = computeGradients(image64)
-    # print(len(magnetude))
-    # # Pour voir les 5x5 premiers pixels de la matrice
-    # print("Extrait de la magnitude :\n", magnetude[:5, :5])
-    
-    # img = resizeImage('../Data/Mer/qhsrty65.jpg', 4,4)
-    # print(computeHistoHSV(img))
-    pass
-==> main.py <==
-import joblib
-
-from analysis import *
-from models import *
-from metrics import *
-from votePredict import *
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
-import os
-
-NAIVE = {
-        "name" : "NaiveBayes",
-        "hyper_param" : {}
-    }
-
-# Improved KNN setup
-KNN = {
-    "name": "KNN",
-    "hyper_param": {
-        'n_neighbors': 7,            # smaller value works better for image embeddings
-        'weights': 'distance',       # closer neighbors count more
-        'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
-    }
-}
-param_grid_KNN = {
-    'n_neighbors': [5, 7, 9, 11, 13],
-    'weights': ['uniform', 'distance'],
-    'metric': ['euclidean', 'manhattan', 'cosine']
-}
-
-# KNN = {
-#         "name" : "KNN",
-#         "hyper_param" : {
-#             'metric': 'manhattan', 
-#             'n_neighbors':25, 
-#             'weights': 'uniform'
-#             }
-#     }
-# param_grid_KNN = {
-#     'n_neighbors': [25, 31, 41, 51], 
-#     'weights': ['uniform'], 
-#     'metric': ['euclidean', 'manhattan']
-# }
- 
-LINEAR_SVC = {
-        "name" : "LinearSVC",
-        "hyper_param" : {
-            'C': 0.0001, 
-            'dual': False, 
-            'max_iter': 5000, 
-            'penalty': 'l2'
-            }
-    }
-param_grid_LINEAR_SVC = {
-    'C': [0.00001, 0.0001, 0.001, 0.1], # contrôle la force de la régularisation
-    'dual': [False], 
-    'penalty': ['l2'],
-    'max_iter': [5000, 10000]
-}
-   
-RFC = {
-    "name": "RFC",
-    "hyper_param": {
-        'n_estimators': 200,          # more trees
-        'max_depth': None,            # allow deep trees
-        'min_samples_split': 2,
-        'min_samples_leaf': 1,
-        'max_features': 'sqrt',       # features considered at each split
-        'random_state': 42
-    }
-}
-param_grid_RFC = {
-    'n_estimators': [100, 200, 300],
-    'max_depth': [None, 10, 20],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 5],
-    'max_features': ['sqrt', 'log2']
-}
-
-# RFC = {
-#     "name": "RFC",
-#     "hyper_param": {
-#         'max_depth': 10, 
-#         'max_features': 'log2', 
-#         'min_samples_leaf': 10, 
-#         'min_samples_split': 2, 
-#         'n_estimators': 50
-#         }
-# }
-# param_grid_RFC = {
-#         'n_estimators': [50, 100, 200],
-#         'max_depth': [None, 5, 10, 15],
-#         'min_samples_split': [2, 5, 10],
-#         'min_samples_leaf': [1, 5, 10],
-#         'max_features': ['sqrt', 'log2']
-#     }    
-   
-   
-def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
-    # On définit la grille des paramètres à tester
-
-    # On initialise le modèle de base
-
-    # On configure la recherche (cv=5 signifie qu'il divise tes 414 images en 5 morceaux)
-    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, 
-                            cv=5, scoring='accuracy', n_jobs=-1, verbose=1,
-                            return_train_score=True)
-    
-    # On extrait X et y
-    X_train = extract_X(features_to_use, S)
-    y_train = np.array([img['y_true_class'] for img in S])
-
-    # On lance l'entraînement sur tes données (X_train, y_train)
-    grid_search.fit(X_train, y_train)
-
-    # On récupère les meilleurs paramètres
-    results = grid_search.cv_results_
-
-    best_idx = -1
-    best_score_robust = -1
-    
-    # ON VEUT LES PARAM OPTIMAUX, PAS LES MEILLEURS
-    # On parcourt tous les tests effectués par GridSearchCV
-    for i in range(len(results['params'])):
-        mean_test = results['mean_test_score'][i]
-        mean_train = results['mean_train_score'][i]
-        gap = mean_train - mean_test
-        
-        # CRITÈRE D'OPTIMALITÉ : 
-        # On veut le meilleur score de test, 
-        # MAIS on ignore les modèles où l'overfit est trop violent (> 10%)
-        if gap < 0.10: 
-            if mean_test > best_score_robust:
-                best_score_robust = mean_test
-                best_idx = i
-
-    # Si aucun modèle n'est sous les 10% d'écart, on prend quand même le meilleur par défaut
-    if best_idx == -1:
-        best_idx = grid_search.best_index_
-
-    optimal_params = results['params'][best_idx]
-    
-    print("\n--- Paramètres Optimaux (Robustes) ---")
-    print(f"Paramètres : {optimal_params}")
-    print(f"Validation Score : {results['mean_test_score'][best_idx]:.2%}")
-    print(f"Overfit Gap : {(results['mean_train_score'][best_idx] - results['mean_test_score'][best_idx]):.2%}")
-    
-    return optimal_params
-    
 def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
     """
     Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
@@ -359,8 +78,191 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
         print(f"Fichier {filename} généré avec succès.")
         
     except Exception as e:
-        print(f"❌ Erreur lors de l'écriture du fichier : {e}")
+        print(f"Erreur lors de l'écriture du fichier : {e}")
+
+
+# Sample complet
+S = buildSampleFromPath(path_Ailleurs, path_mer)
+print("Nombre d'image dans le sample S : ", len(S))
+features = ['X_grad', 'X_histoHSV', 'X_histo']
+
+
+######## ENTRAINEMENT ###########################################################
+# model_naive = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
+# model_knn = fitFrom(features, S, KNN)
+# model_linearSVC = fitFrom(features, S, LINEAR_SVC)
+# model_rfc = fitFrom(features, S, RFC)
+
+
+
+
+######## SAUVEGARDE DES MODELS ###################################################
+# Une fois les modèles entraînés :
+mes_modeles = {
+    'knn': model_knn,
+    'svc': model_linearSVC,
+    'rfc': model_rfc
+}
+# save_models(mes_modeles)
+
+
+######## TEST CC2 #############################################################0.22
+
+
+
+# Au lieu de fitFrom(), on charge directement :
+modeles_charges = load_models("models_roblof.joblib")
+
+if modeles_charges:
+    model_knn = modeles_charges['knn']
+    model_linearSVC = modeles_charges['svc']
+    model_rfc = modeles_charges['rfc']
+
+print("Test sur le sample inconnue...")
+S_TEST = buildSampleFromPathTEST(path_TEST)
+
+# generer le fichier pour cc2
+generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
+==> config.py <==
+import joblib
+from preprocessing import *
+from models import *
+from metrics import *
+from votePredict import *
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+import os
+
+# 
+
+NAIVE = {
+        "name" : "NaiveBayes",
+        "hyper_param" : {}
+    }
+
+# Improved KNN setup
+KNN = {
+    "name": "KNN",
+    "hyper_param": {
+        'n_neighbors': 7,            # smaller value works better for image embeddings
+        'weights': 'distance',       # closer neighbors count more
+        'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
+    }
+}
+param_grid_KNN = {
+    'n_neighbors': [5, 7, 9, 11, 13],
+    'weights': ['uniform', 'distance'],
+    'metric': ['euclidean', 'manhattan', 'cosine']
+}
+
+LINEAR_SVC = {
+        "name" : "LinearSVC",
+        "hyper_param" : {
+            'C': 0.0001, 
+            'dual': False, 
+            'max_iter': 5000, 
+            'penalty': 'l2'
+            }
+    }
+param_grid_LINEAR_SVC = {
+    'C': [0.00001, 0.0001, 0.001, 0.1], # contrôle la force de la régularisation
+    'dual': [False], 
+    'penalty': ['l2'],
+    'max_iter': [5000, 10000]
+}
+   
+RFC = {
+    "name": "RFC",
+    "hyper_param": {
+        'n_estimators': 200,          # more trees
+        'max_depth': None,            # allow deep trees
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',       # features considered at each split
+        'random_state': 42
+    }
+}
+param_grid_RFC = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
+  
+GB = {
+    "name": "GB",
+    "hyper_param": {
+        'n_estimators': 200,
+        'learning_rate': 0.1,
+        'max_depth': 3,
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',
+        'random_state': 42
+    }
+}
+param_grid_GB = {
+    'n_estimators': [100, 200, 300],
+    'learning_rate': [0.01, 0.05, 0.1],
+    'max_depth': [3, 5, 7],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
+   
+   
+def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
+    # On définit la grille des paramètres à tester
+
+    # On initialise le modèle de base
+
+    # On configure la recherche (cv=5 signifie qu'il divise tes 414 images en 5 morceaux)
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, 
+                            cv=5, scoring='accuracy', n_jobs=-1, verbose=1,
+                            return_train_score=True)
     
+    # On extrait X et y
+    X_train = extract_X(features_to_use, S)
+    y_train = np.array([img['y_true_class'] for img in S])
+
+    # On lance l'entraînement sur tes données (X_train, y_train)
+    grid_search.fit(X_train, y_train)
+
+    # On récupère les meilleurs paramètres
+    results = grid_search.cv_results_
+
+    best_idx = -1
+    best_score_robust = -1
+    
+    # ON VEUT LES PARAM OPTIMAUX, PAS LES MEILLEURS
+    # On parcourt tous les tests effectués par GridSearchCV
+    for i in range(len(results['params'])):
+        mean_test = results['mean_test_score'][i]
+        mean_train = results['mean_train_score'][i]
+        gap = mean_train - mean_test
+        
+        # CRITÈRE D'OPTIMALITÉ : 
+        # On veut le meilleur score de test, 
+        # MAIS on ignore les modèles où l'overfit est trop grand (> 10%)
+        if gap < 0.10: 
+            if mean_test > best_score_robust:
+                best_score_robust = mean_test
+                best_idx = i
+
+    # Si aucun modèle n'est sous les 10% d'écart, on prend quand même le meilleur par défaut
+    if best_idx == -1:
+        best_idx = grid_search.best_index_
+
+    optimal_params = results['params'][best_idx]
+    
+    print("\n--- Paramètres Optimaux (Robustes) ---")
+    print(f"Paramètres : {optimal_params}")
+    print(f"Validation Score : {results['mean_test_score'][best_idx]:.2%}")
+    print(f"Overfit Gap : {(results['mean_train_score'][best_idx] - results['mean_test_score'][best_idx]):.2%}")
+    
+    return optimal_params   
     
 # Sample complet
 # S = buildSampleFromPath(path_Ailleurs, path_mer)
@@ -376,22 +278,6 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 # model_linearSVC = fitFrom(features, S, LINEAR_SVC)
 # model_rfc = fitFrom(features, S, RFC)
 
-######## SAUVEGARDE DES MODELS ###################################################
-
-# def save_models(models_dict, filename="models_roblof.joblib"):
-#     """ Sauvegarde un dictionnaire de modèles dans un fichier """
-#     joblib.dump(models_dict, filename)
-#     print(f"Modèles sauvegardés dans {filename}")
-
-# # --- Dans ton bloc principal ---
-# # Une fois les modèles entraînés :
-# mes_modeles = {
-#     'knn': model_knn,
-#     'svc': model_linearSVC,
-#     'rfc': model_rfc
-# }
-# save_models(mes_modeles)
-
 
 ######## METRICS DES MODELS ###################################################
 
@@ -400,43 +286,6 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
 
 # print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
 # print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
-
-
-######## TEST CC2 #############################################################
-
-# print(f"err empirique : {err_empirique_vote(S, model_knn, model_linearSVC, model_rfc):.2%}")
-# print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
-
-# print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
-# print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
-
-
-######## TEST CC2 #############################################################
-
-def load_models(filename="models_roblof.joblib"):
-    """ Charge les modèles depuis le fichier """
-    if os.path.exists(filename):
-        print(f"Chargement des modèles depuis {filename}...")
-        return joblib.load(filename)
-    else:
-        print("Erreur : Fichier de modèles introuvable !")
-        return None
-
-
-# Au lieu de fitFrom(...), on charge directement :
-modeles_charges = load_models("models_roblof.joblib")
-
-if modeles_charges:
-    model_knn = modeles_charges['knn']
-    model_linearSVC = modeles_charges['svc']
-    model_rfc = modeles_charges['rfc']
-
-print("Test sur le sample inconnue...")
-S_TEST = buildSampleFromPathTEST(path_TEST)
-
-# generer le fichier pour cc2
-generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
-# TODO save le model pour pas savoir a entrainer a chaque fois
 
 
 ==> metrics.py <==
@@ -646,6 +495,179 @@ def predictFrom(S_test: list[dict], model):
 if __name__ == '__main__':
     pass
     
+==> preprocessing.py <==
+import os
+from PIL import Image
+import cv2
+import numpy as np
+
+# Ici les fonctions de manipulations, traitement des données
+
+path_mer = "../Data/Mer"
+path_Ailleurs = "../Data/Ailleurs"
+path_TEST = "../Data/TEST"
+image_test = '../Data/Mer/js44.jpeg'
+resize_h, resize_l = 128, 128
+resize_grad = 128
+
+
+def resizeImage(imgPath: str, h: int, l: int) -> Image:
+    """
+    retourne l image retaillée (et la sauvegarde dans ../Data/Resized/) pour qu elle soit de taille h*l
+    """
+    img = Image.open(imgPath).convert('RGB')
+    img_resize = img.resize((h,l))
+    #name = os.path.splitext(os.path.basename(imgPath))[0] + '_resized.jpg'
+    #img_resize.save(f"../Data/Resized/{name}")
+    return img_resize
+
+
+def computeHisto(image: Image.Image):
+    """
+    calcule et retourne (et/ou stocke) l histogramme de couleurs 
+    de l image i, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    image.convert('RGB')
+    histo = image.histogram()
+    return histo
+
+
+def computeHistoHSV(image: Image.Image):
+    """
+    calcule et retourne l histogramme de couleurs 
+    de l image i en HSV, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    imageHSV = image.convert('HSV')
+    histo = imageHSV.histogram()
+    return histo
+
+
+def buildSampleFromPath (path1 :str,  path2 :str):
+    """
+    retourne  un  échantillon  S (list de dict)  de 
+    données issu des répertoires path1 (les données +1, avec paysage maritime) et 
+    path2 (les données -1, sans paysage maritime)
+    """
+    
+    data_res = []
+
+    #### data ailleurs ####
+    data_ailleurs = os.listdir(path1)
+    
+    for img in data_ailleurs:
+        
+        name_path = f"{path1}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : -1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    
+    #### data mer ####
+    data_mer = os.listdir(path2)
+    
+    for img in data_mer:
+        
+        name_path = f"{path2}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : 1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+# build S pour set melangé, avec trueclas = None, 
+def buildSampleFromPathTEST (path):
+    data_res = []
+
+    #### data sans true class ####
+    data = os.listdir(path)
+    
+    for img in data:
+        
+        name_path = f"{path}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : None,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+def computeGradients(pil_image: Image.Image):
+    """
+    Calcule un histogramme des directions des gradients pondéré par la magnitude.
+    """
+    img_gray = pil_image.convert('L')
+    img_array = np.array(img_gray)
+
+    # Calcul des gradients X et Y
+    grad_x = cv2.Sobel(img_array, cv2.CV_64F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(img_array, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Conversion en polaires (0 à 360 degrés)
+    magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
+
+    # Création de l'histogramme de direction (8 secteurs de 45°)
+    # On utilise np.histogram sur la matrice direction
+    # weights=magnitude permet de donner plus d'importance aux contours nets
+    histo_direction, _ = np.histogram(direction, bins=8, range=(0, 360), weights=magnitude)
+
+    # Normalisation pour que la taille de l'image n'influence pas les valeurs
+    if np.sum(histo_direction) > 0:
+        histo_direction = histo_direction / np.sum(histo_direction)
+
+    # On peut garder quelques stats globales en plus
+    gradStats = [
+        np.mean(magnitude) / 255.0, # Normalisé
+        np.std(magnitude) / 255.0
+    ]
+    
+    # On combine les stats et l'histogramme (8 valeurs)
+    return gradStats + histo_direction.tolist()
+
+# rename preprocessing
+
+
+
+if __name__ == '__main__':
+    # S = buildSampleFromPath(path_Ailleurs, path_mer)
+    # print(S[0])
+    
+    # image64 = resizeImage('../Data/Mer/ra7jj.jpeg', 64, 64)
+    # magnetude, direction = computeGradients(image64)
+    # print(len(magnetude))
+    # # Pour voir les 5x5 premiers pixels de la matrice
+    # print("Extrait de la magnitude :\n", magnetude[:5, :5])
+    
+    # img = resizeImage('../Data/Mer/qhsrty65.jpg', 4,4)
+    # print(computeHistoHSV(img))
+    pass
 ==> votePredict.py <==
 import copy
 

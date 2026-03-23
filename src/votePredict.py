@@ -1,6 +1,6 @@
 import copy
 
-from models import predictFrom
+from src.models import predictFrom
 
 def votePredict3(S: list[dict], model1, model2, model3) -> list[dict]:
     """
