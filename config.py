@@ -161,3 +161,28 @@ def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_
 # print(f"err empirique : {err_empirique(S, model_rfc):.2%}")
 # print(f"err reel      : {err_real_cv(S, model_rfc):.2%}")
 
+
+
+######## MAYBE AJOUT DE MODEL ? ###############################################
+
+# from sklearn.ensemble import ExtraTreesClassifier
+
+# ETC = {
+#     "name": "ETC",
+#     "hyper_param": {
+#         'n_estimators': 200,
+#         'max_depth': None,
+#         'min_samples_split': 2,
+#         'min_samples_leaf': 1,
+#         'max_features': 'sqrt',
+#         'random_state': 42
+#     }
+# }
+
+# param_grid_ETC = {
+#     'n_estimators': [100, 200, 300],
+#     'max_depth': [None, 10, 20],
+#     'min_samples_split': [2, 5, 10],
+#     'min_samples_leaf': [1, 2, 5],
+#     'max_features': ['sqrt', 'log2']
+# }
