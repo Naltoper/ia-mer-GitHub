@@ -940,8 +940,3 @@ def votePredict5(S: list[dict], model1, model2, model3, model4, model5) -> list[
 
 if __name__ == '__main__':
     pass
-==> ./src/utils.py <==
-
-
-# TODO ici mettre les fonctions utilitaires
-==> ./src/secondVotePredict.py <==

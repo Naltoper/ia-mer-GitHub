@@ -1,9 +1,8 @@
 # Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)
 # Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest, GradientBoosting, SVC)
-# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)
-# 1er passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB
-# Vote majoritaire avec meme ensemble sur le sample modifier par le 1er passage
-# 2nd passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB + y_predicted_class du 1er passage
+# KNN(k=7,cosine), LinearSVC(C=0.0001), RFC(n=200,max_depth=None), GB(learning_rate: 0.1), SVC(C: 10)
+# 1er passage avec concaténation (sur img 128x128): Gradients résumé, Histo HSV, Histo RGB
+# 2nd passage avec meme features + y_predicted_class du 1er passage
 y76tr.jpg +1
 00puy54q.jpg -1
 du710P.jpg +1

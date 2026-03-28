@@ -92,10 +92,9 @@ def generate_cc2_file_2nd_passage(S_test, filename="output/roblof2.txt"):
             # header
             f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
             f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest, GradientBoosting, SVC)\n")
-            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
+            f.write("# KNN(k=7,cosine), LinearSVC(C=0.0001), RFC(n=200,max_depth=None), GB(learning_rate: 0.1), SVC(C: 10)\n")
             f.write("# 1er passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
-            f.write("# Vote majoritaire avec meme ensemble sur le sample modifier par le 1er passage\n")
-            f.write("# 2nd passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB + y_predicted_class du 1er passage\n")
+            f.write("# 2nd passage avec meme features + y_predicted_class du 1er passage\n")
             
             # Liste des images et prédictions
             for img in S_test:
