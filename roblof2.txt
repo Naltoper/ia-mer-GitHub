@@ -1,0 +1,10 @@
+# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)
+# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)
+# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)
+# Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB
+y76tr.jpg +1
+00puy54q.jpg -1
+du710P.jpg +1
+pou96a.jpg +1
+# EE = 0.00
+# ER = 0.17
