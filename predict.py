@@ -25,7 +25,7 @@ def buildSampleFromPathTEST (path):
     
     return data_res
 
-def save_models(models_dict, filename="models_roblof.joblib"):
+def save_models(models_dict, filename="output/models_roblof.joblib"):
     """ Sauvegarde un dictionnaire de modèles dans un fichier """
     joblib.dump(models_dict, filename)
     print(f"Modèles sauvegardés dans {filename}")
@@ -79,7 +79,7 @@ def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.
     except Exception as e:
         print(f"Erreur lors de l'écriture du fichier : {e}")
 
-def generate_cc2_file_2nd_passage(S_test, filename="roblof2.txt"):
+def generate_cc2_file_2nd_passage(S_test, filename="output/roblof2.txt"):
     """
     Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
     """
@@ -145,7 +145,7 @@ def generate_cc2_file_2nd_passage(S_test, filename="roblof2.txt"):
 #     'gb' : model_gb,
 #     'svc': model_SVC
 # }
-# save_models(mes_modeles_1er, filename="mes_modeles_1er.joblib")
+# save_models(mes_modeles_1er, filename="output/mes_modeles_1er.joblib")
 
 
 
@@ -172,7 +172,7 @@ def generate_cc2_file_2nd_passage(S_test, filename="roblof2.txt"):
 #     'gb' : model_gb_2nd,
 #     'svc': model_SVC_2nd
 # }
-# save_models(mes_modeles_2nd, filename="mes_modeles_2nd.joblib")
+# save_models(mes_modeles_2nd, filename="output/mes_modeles_2nd.joblib")
 
 
 ######## PREDICTION #############################################################0.22
@@ -181,7 +181,7 @@ def generate_cc2_file_2nd_passage(S_test, filename="roblof2.txt"):
 
 # Au lieu de fitFrom(), on charge directement :
 # Chargement 1er passage
-modeles_charges_1er = load_models("mes_modeles_1er.joblib")
+modeles_charges_1er = load_models("output/mes_modeles_1er.joblib")
 
 if modeles_charges_1er:
     model_knn_1er = modeles_charges_1er['knn']
@@ -191,7 +191,7 @@ if modeles_charges_1er:
     model_SVC_1er = modeles_charges_1er['svc']
 
 # Chargement 2nd passage
-modeles_charges_2nd = load_models("mes_modeles_2nd.joblib")
+modeles_charges_2nd = load_models("output/mes_modeles_2nd.joblib")
 
 if modeles_charges_2nd:
     model_knn_2nd = modeles_charges_2nd['knn']
