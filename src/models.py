@@ -27,6 +27,21 @@ def extract_X(features_to_use: list[str], S: list[dict], model, training: bool):
                 # Pour X_histo ou d'autres features directes (listes ou arrays) rien à faire
                 array = img[feat]
                 combined_features.extend(array)
+                
+            # Pour train le model de 2nd passage, on lui ajoute les predictions du premier passage.
+            # Dans ce cas y_predicted_class de S doit dejà avoir etait modifié par le model 
+            # de premier passage.
+            elif feat == 'y_predicted_class':
+                if img[feat] == None:
+                    raise ValueError(f"""{feat} ne peut pas etre utilisé dans les features 
+                                     car S n'a pas encore été modifier par un model de premier 
+                                     passage. Modifiez S une premiere fois puis utilisez 
+                                     un model de second passage avec y_predicted_class en plus
+                                     des autres features.""")
+                else:
+                    first_prediction = img['y_predicted_class']
+                    combined_features.append(first_prediction)
+                    
             else:
                 raise ValueError(f"Unsupported feature: {feat}")
 
