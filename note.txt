@@ -1,0 +1,947 @@
+==> ./predict.py <==
+from src.config import *
+
+# Build S pour Dataset inconnnu, avec trueclas = None, 
+def buildSampleFromPathTEST (path):
+    data_res = []
+
+    #### data sans true class ####
+    data = os.listdir(path)
+    
+    for img in data:
+        
+        name_path = f"{path}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : None,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+def save_models(models_dict, filename="output/models_roblof.joblib"):
+    """ Sauvegarde un dictionnaire de modèles dans un fichier """
+    joblib.dump(models_dict, filename)
+    print(f"Modèles sauvegardés dans {filename}")
+
+def load_models(filename="models_roblof.joblib"):
+    """ Charge les modèles depuis le fichier """
+    if os.path.exists(filename):
+        print(f"Chargement des modèles depuis {filename}...")
+        return joblib.load(filename)
+    else:
+        print("Erreur : Fichier de modèles introuvable !")
+        return None
+
+def generate_cc2_file(S_test, model_knn, model_svc, model_rfc, filename="roblof.txt"):
+    """
+    Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
+    """
+    # Calcul des prédictions via le vote majoritaire
+    # remplie 'y_predicted_class'
+    S_test = votePredict3(S_test, model_knn, model_svc, model_rfc)
+    
+    # footer
+    ee = 0.00  
+    er = 0.17  
+
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            # header
+            f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
+            f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest)\n")
+            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
+            f.write("# Concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
+            
+            # Liste des images et prédictions
+            for img in S_test:
+                # On extrait juste "image.jpg" du path
+                clean_name = os.path.basename(img['name_path'])
+                pred = img['y_predicted_class']
+                
+                # Formatage : Nom +1 ou Nom -1
+                pred_str = f"+{pred}" if pred > 0 else f"{pred}"
+                
+                f.write(f"{clean_name} {pred_str}\n")
+            
+            # Footer
+            f.write(f"# EE = {ee:.2f}\n")
+            f.write(f"# ER = {er:.2f}\n")
+
+        print(f"Fichier {filename} généré avec succès.")
+        
+    except Exception as e:
+        print(f"Erreur lors de l'écriture du fichier : {e}")
+
+def generate_cc2_file_2nd_passage(S_test, filename="output/roblof2.txt"):
+    """
+    Génère le fichier de résultats au format CC2 en utilisant le vote majoritaire.
+    """
+    # footer
+    ee = 0.00  
+    er = 0.1028
+
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            # header
+            f.write("# Florent Fabretti, Vincent Fabretti, Djibril Mimouni (Equipe roblof)\n")
+            f.write("# Vote majoritaire (Ensemble : KNN, LinearSVC, RandomForest, GradientBoosting, SVC)\n")
+            f.write("# KNN(k=7,cosine), SVC(C=0.0001), RFC(n=200,max_depth=None)\n")
+            f.write("# 1er passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB\n")
+            f.write("# Vote majoritaire avec meme ensemble sur le sample modifier par le 1er passage\n")
+            f.write("# 2nd passage avec concaténation (sur image 128x128): Gradients résumé, Histo HSV, Histo RGB + y_predicted_class du 1er passage\n")
+            
+            # Liste des images et prédictions
+            for img in S_test:
+                # On extrait juste "image.jpg" du path
+                clean_name = os.path.basename(img['name_path'])
+                pred = img['y_predicted_class']
+                
+                # Formatage : Nom +1 ou Nom -1
+                pred_str = f"+{pred}" if pred > 0 else f"{pred}"
+                
+                f.write(f"{clean_name} {pred_str}\n")
+            
+            # Footer
+            f.write(f"# EE = {ee:.2f}\n")
+            f.write(f"# ER = {er:.2f}\n")
+
+        print(f"Fichier {filename} généré avec succès.")
+        
+    except Exception as e:
+        print(f"Erreur lors de l'écriture du fichier : {e}")
+
+
+# # Sample complet
+# S = buildSampleFromPath(path_Ailleurs, path_mer)
+# print("Nombre d'image dans le sample S : ", len(S))
+
+
+
+
+# ######## ENTRAINEMENT 1er passage ###########################################################
+# # Features 1er passage
+# features = ['X_grad', 'X_histoHSV', 'X_histo']
+
+# model_knn = fitFrom(features, S, KNN)
+# model_linearSVC = fitFrom(features, S, LINEAR_SVC)
+# model_rfc = fitFrom(features, S, RFC)
+# model_gb = fitFrom(features, S, GB)
+# model_SVC = fitFrom(features, S, SVC_)
+
+
+# ######## SAUVEGARDE DES MODELS de 1er passage ###################################################
+# # Une fois les modèles entraînés :
+# mes_modeles_1er = {
+#     'knn': model_knn,
+#     'linear_svc': model_linearSVC,
+#     'rfc': model_rfc,
+#     'gb' : model_gb,
+#     'svc': model_SVC
+# }
+# save_models(mes_modeles_1er, filename="output/mes_modeles_1er.joblib")
+
+
+
+# ######## ENTRAINEMENT 2nd passage ###########################################################
+# # On fait le premier passage pour avoir ses predictions
+# votePredict5(S, model_knn, model_linearSVC, model_rfc, model_gb, model_SVC)
+# # Features 2nd passage on ajoute les predictions du 1er passage
+# features_2nd_passage = ['X_grad', 'X_histoHSV', 'X_histo', 'y_predicted_class']
+
+# model_knn_2nd = fitFrom(features_2nd_passage, S, KNN)
+# model_linearSVC_2nd = fitFrom(features_2nd_passage, S, LINEAR_SVC)
+# model_rfc_2nd = fitFrom(features_2nd_passage, S, RFC)
+# model_gb_2nd = fitFrom(features_2nd_passage, S, GB)
+# model_SVC_2nd = fitFrom(features_2nd_passage, S, SVC_)
+
+
+
+# ######## SAUVEGARDE DES MODELS de 2nd passage ###################################################
+# # Une fois les modèles entraînés :
+# mes_modeles_2nd = {
+#     'knn': model_knn_2nd,
+#     'linear_svc': model_linearSVC_2nd,
+#     'rfc': model_rfc_2nd,
+#     'gb' : model_gb_2nd,
+#     'svc': model_SVC_2nd
+# }
+# save_models(mes_modeles_2nd, filename="output/mes_modeles_2nd.joblib")
+
+
+######## PREDICTION #############################################################0.22
+
+
+
+# Au lieu de fitFrom(), on charge directement :
+# Chargement 1er passage
+modeles_charges_1er = load_models("output/mes_modeles_1er.joblib")
+
+if modeles_charges_1er:
+    model_knn_1er = modeles_charges_1er['knn']
+    model_linearSVC_1er = modeles_charges_1er['linear_svc']
+    model_rfc_1er = modeles_charges_1er['rfc']
+    model_gb_1er = modeles_charges_1er['gb']
+    model_SVC_1er = modeles_charges_1er['svc']
+
+# Chargement 2nd passage
+modeles_charges_2nd = load_models("output/mes_modeles_2nd.joblib")
+
+if modeles_charges_2nd:
+    model_knn_2nd = modeles_charges_2nd['knn']
+    model_linearSVC_2nd = modeles_charges_2nd['linear_svc']
+    model_rfc_2nd = modeles_charges_2nd['rfc']
+    model_gb_2nd = modeles_charges_2nd['gb']
+    model_SVC_2nd = modeles_charges_2nd['svc']
+
+
+######## CHEMIN DES IMAGES TESTS #########
+print("Test sur le sample inconnue...")
+path_CC3 = "../../Format rendu CC3-20260323/FormatTestCC3/FormatTestCC3"
+S_TEST = buildSampleFromPathTEST(path_CC3)
+
+# 1ER PASSAGE
+votePredict5(S_TEST, model_knn_1er, model_linearSVC_1er, model_rfc_1er, model_gb_1er, model_SVC_1er)
+
+# 2ND PASSAGE
+votePredict5(S_TEST, model_knn_2nd, model_linearSVC_2nd, model_rfc_2nd, model_gb_2nd, model_SVC_2nd)
+
+
+# generer le fichier pour cc2
+# generate_cc2_file(S_TEST, model_knn, model_linearSVC, model_rfc)
+generate_cc2_file_2nd_passage(S_TEST)
+
+
+==> ./train.py <==
+from src.config import *
+from sklearn.svm import SVC
+
+
+# Sample complet
+S = buildSampleFromPath(path_Ailleurs, path_mer)
+print("Nombre d'image dans le sample S : ", len(S))
+features = ['X_grad', 'X_histoHSV', 'X_histo']
+
+
+######## RECHERCHE HYPER-PARAMS ###########################################################
+# hyper_param_research(features, S, SVC(), param_grid_SVC)
+
+
+
+######## ENTRAINEMENT ###########################################################
+
+# model_naive = fitFrom(['X_grad', 'X_histoHSV'], S, NAIVE)
+model_knn = fitFrom(features, S, KNN)
+model_linearSVC = fitFrom(features, S, LINEAR_SVC)
+model_rfc = fitFrom(features, S, RFC)
+model_gb = fitFrom(features, S, GB)
+model_SVC = fitFrom(features, S, SVC_)
+
+
+######## METRICS DES MODELS ###################################################
+# SOLO
+# print(f"err empirique : {err_empirique(S, model_gb):.2%}")
+# print(f"err reel      : {err_real_cv(S, model_gb):.2%}")
+
+# ENSEMBLE 3
+# print(f"err empirique : {err_empirique_vote(S, model_knn, model_linearSVC, model_rfc):.2%}")
+# print(f"err reel      : {err_real_cv_vote(S, KNN, LINEAR_SVC, RFC, features):.2%}")
+
+# ENSEMBLE 5
+# print(f"err empirique : {err_empirique_vote5(S, model_knn, model_linearSVC, model_rfc, model_gb, model_SVC):.2%}")
+# print(f"err reel      : {err_real_cv_vote5(S, KNN, LINEAR_SVC, RFC, GB, SVC_, features):.2%}")
+
+
+######## MODEL DE 2ND PASSAGE ##################################################
+
+# D'abord on modifie S avec le model de premier passage
+votePredict5(S, model_knn, model_linearSVC, model_rfc, model_gb, model_SVC)
+
+# On ajoute la prediction du premier passage dans les features
+features_2nd_passage = ['X_grad', 'X_histoHSV', 'X_histo', 'y_predicted_class']
+
+# On entraine un nouveau model ensembliste avec cette features en plus
+model_knn_2nd = fitFrom(features_2nd_passage, S, KNN)
+model_linearSVC_2nd = fitFrom(features_2nd_passage, S, LINEAR_SVC)
+model_rfc_2nd = fitFrom(features_2nd_passage, S, RFC)
+model_gb_2nd = fitFrom(features_2nd_passage, S, GB)
+model_SVC_2nd = fitFrom(features_2nd_passage, S, SVC_)
+
+# Le model de 2nd passage est entrainé, on peut l'evaluer :
+# ENSEMBLE 5
+print(f"err empirique : {err_empirique_vote5(S, model_knn_2nd, model_linearSVC_2nd, model_rfc_2nd, model_gb_2nd, model_SVC_2nd):.2%}")
+print(f"err reel      : {err_real_cv_vote5(S, KNN, LINEAR_SVC, RFC, GB, SVC_, features_2nd_passage):.2%}")
+
+
+==> ./src/models.py <==
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.svm import SVC
+
+
+
+# Ici les fonctions d'entrainement, predictions des models
+scaler = StandardScaler()
+
+def extract_X(features_to_use: list[str], S: list[dict], model, training: bool):
+    """
+    Créer X en fonction des features choisies.
+    Features possibles: ['X_histo', X_histoHSV, 'X_grad']
+    Retourne un nparray scaled par un Scaler enregistré comme un attribut dans l'objet model
+    """
+    data_list = []
+    for img in S:
+        combined_features = []
+
+        for feat in features_to_use:
+            if feat in ['X_histo', 'X_histoHSV', 'X_grad']:
+                # Pour X_histo ou d'autres features directes (listes ou arrays) rien à faire
+                array = img[feat]
+                combined_features.extend(array)
+                
+            # Pour train le model de 2nd passage, on lui ajoute les predictions du premier passage.
+            # Dans ce cas y_predicted_class de S doit dejà avoir etait modifié par le model 
+            # de premier passage.
+            elif feat == 'y_predicted_class':
+                if img[feat] == None:
+                    raise ValueError(f"""{feat} ne peut pas etre utilisé dans les features 
+                                     car S n'a pas encore été modifier par un model de premier 
+                                     passage. Modifiez S une premiere fois puis utilisez 
+                                     un model de second passage avec y_predicted_class en plus
+                                     des autres features.""")
+                else:
+                    first_prediction = img['y_predicted_class']
+                    combined_features.append(first_prediction)
+                    
+            else:
+                raise ValueError(f"Unsupported feature: {feat}")
+
+        data_list.append(combined_features)
+
+    X = np.array(data_list)
+
+    if training:
+        # Phase d'entraînement : on crée le scaler, on le sauvegarde et on l'apprend (fit)
+        model.scaler = StandardScaler()
+        X = model.scaler.fit_transform(X)
+    else:
+        # Phase de prédiction : on utilise le scaler déjà stocké
+        if hasattr(model, 'scaler') and model.scaler is not None:
+            X = model.scaler.transform(X)
+        else:
+            # si pas de scaler, on lever une erreur
+            raise ValueError("No scaler found in model, if you test a model, it must have been trained with this fonction, with training=True")
+
+    return X
+
+
+def chooseAlgo(algo):
+    if algo['name'] == "NaiveBayes":
+        model = GaussianNB(**algo.get('hyper_param', {}))
+    elif algo['name'] == "KNN":
+        model = KNeighborsClassifier(**algo.get('hyper_param', {}))
+    elif algo['name'] == "LinearSVC":
+        model = LinearSVC(**algo.get('hyper_param', {}))
+    elif algo['name'] == "RFC":
+        model = RandomForestClassifier(**algo.get('hyper_param', {}))
+    elif algo['name'] == "GB":
+        model = GradientBoostingClassifier(**algo.get('hyper_param', {}))
+    elif algo['name'] == "SVC":
+        model = SVC(**algo.get('hyper_param', {}))
+    else:
+        raise ValueError(f"Unsupported algorithm: {algo['name']}")
+
+    return model
+
+
+
+def fitFrom(features_to_use: list[str], S_train: list, algo: dict):
+    """
+    Entraîne un modèle en utilisant les features données (features_to_use).
+    """
+    model = chooseAlgo(algo)
+    # On creer un attribut features pour les retrouver plus tard
+    model.features = features_to_use
+
+    # Caracteristique et cible
+    X_train = extract_X(features_to_use, S_train, model, training=True) # training=True : on fit et save un scaler dans ce model
+    y_train = np.array([img['y_true_class'] for img in S_train])
+
+
+
+    # Entraînement
+    model.fit(X_train, y_train)
+
+    print(f"Entrainement terminé avec X = {features_to_use}")
+    print(f"Model : {algo['name']}")
+    return model
+
+
+def predictFrom(S_test: list[dict], model):
+    """
+    Calcule la prédiction du modèle sur les données de S_test (sur les memes features que son entrainement).
+    Modifie S_test en place en ajoutant/mettant à jour 'y_predicted_class'.
+    """
+    X_test = extract_X(model.features , S_test, model, training=False) # Fase : extract_X utilisera le scaler saved quand le model a ete entrainé
+
+    predictions = model.predict(X_test)
+
+    # Modif de S
+    # Zip pour parcourir simultanément les dictionnaires et les prédictions
+    for img, pred in zip(S_test, predictions):
+        img['y_predicted_class'] = int(pred)
+
+    return S_test
+
+
+
+
+if __name__ == '__main__':
+    pass
+
+==> ./src/preprocessing.py <==
+import os
+from PIL import Image
+import cv2
+import numpy as np
+
+# Ici les fonctions de manipulations, traitement des données
+
+path_mer = "../Data/Mer"
+path_Ailleurs = "../Data/Ailleurs"
+path_TEST = "../Data/TEST"
+image_test = '../Data/Mer/js44.jpeg'
+resize_h, resize_l = 128, 128
+resize_grad = 128
+
+
+def resizeImage(imgPath: str, h: int, l: int) -> Image:
+    """
+    retourne l image retaillée (et la sauvegarde dans ../Data/Resized/) pour qu elle soit de taille h*l
+    """
+    img = Image.open(imgPath).convert('RGB')
+    img_resize = img.resize((h,l))
+    #name = os.path.splitext(os.path.basename(imgPath))[0] + '_resized.jpg'
+    #img_resize.save(f"../Data/Resized/{name}")
+    return img_resize
+
+
+def computeHisto(image: Image.Image):
+    """
+    calcule et retourne (et/ou stocke) l histogramme de couleurs 
+    de l image i, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    image.convert('RGB')
+    histo = image.histogram()
+    return histo
+
+
+def computeHistoHSV(image: Image.Image):
+    """
+    calcule et retourne l histogramme de couleurs 
+    de l image i en HSV, à l aide de la librairie PIL
+    return le nombre de pixel de chaque niveau de rouge, vert, bleu
+    """
+    imageHSV = image.convert('HSV')
+    histo = imageHSV.histogram()
+    return histo
+
+
+def buildSampleFromPath (path1 :str,  path2 :str):
+    """
+    retourne  un  échantillon  S (list de dict)  de 
+    données issu des répertoires path1 (les données +1, avec paysage maritime) et 
+    path2 (les données -1, sans paysage maritime)
+    """
+    
+    data_res = []
+
+    #### data ailleurs ####
+    data_ailleurs = os.listdir(path1)
+    
+    for img in data_ailleurs:
+        
+        name_path = f"{path1}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : -1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    
+    #### data mer ####
+    data_mer = os.listdir(path2)
+    
+    for img in data_mer:
+        
+        name_path = f"{path2}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : 1,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+# build S pour set melangé, avec trueclas = None, 
+def buildSampleFromPathTEST (path):
+    data_res = []
+
+    #### data sans true class ####
+    data = os.listdir(path)
+    
+    for img in data:
+        
+        name_path = f"{path}/{img}"
+        image_resized_histo = resizeImage(name_path, resize_h, resize_l)
+        image_resized_grad = resizeImage(name_path, resize_grad, resize_grad) # pour ne pas avoir des matrices trop grandes
+        
+        img = { "name_path" : name_path,
+                "resized_image" : image_resized_histo,
+                "X_histo" : computeHisto(image_resized_histo),
+                "X_grad" : computeGradients(image_resized_grad),
+                "X_histoHSV" : computeHistoHSV(image_resized_histo),
+                "y_true_class" : None,
+                "y_predicted_class" : None
+                }
+        data_res.append(img)
+    
+    return data_res
+
+def computeGradients(pil_image: Image.Image):
+    """
+    Calcule un histogramme des directions des gradients pondéré par la magnitude.
+    """
+    img_gray = pil_image.convert('L')
+    img_array = np.array(img_gray)
+
+    # Calcul des gradients X et Y
+    grad_x = cv2.Sobel(img_array, cv2.CV_64F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(img_array, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Conversion en polaires (0 à 360 degrés)
+    magnitude, direction = cv2.cartToPolar(grad_x, grad_y, angleInDegrees=True)
+
+    # Création de l'histogramme de direction (8 secteurs de 45°)
+    # On utilise np.histogram sur la matrice direction
+    # weights=magnitude permet de donner plus d'importance aux contours nets
+    histo_direction, _ = np.histogram(direction, bins=8, range=(0, 360), weights=magnitude)
+
+    # Normalisation pour que la taille de l'image n'influence pas les valeurs
+    if np.sum(histo_direction) > 0:
+        histo_direction = histo_direction / np.sum(histo_direction)
+
+    # On peut garder quelques stats globales en plus
+    gradStats = [
+        np.mean(magnitude) / 255.0, # Normalisé
+        np.std(magnitude) / 255.0
+    ]
+    
+    # On combine les stats et l'histogramme (8 valeurs)
+    return gradStats + histo_direction.tolist()
+
+# rename preprocessing
+
+
+
+if __name__ == '__main__':
+    # S = buildSampleFromPath(path_Ailleurs, path_mer)
+    # print(S[0])
+    
+    # image64 = resizeImage('../Data/Mer/ra7jj.jpeg', 64, 64)
+    # magnetude, direction = computeGradients(image64)
+    # print(len(magnetude))
+    # # Pour voir les 5x5 premiers pixels de la matrice
+    # print("Extrait de la magnitude :\n", magnetude[:5, :5])
+    
+    # img = resizeImage('../Data/Mer/qhsrty65.jpg', 4,4)
+    # print(computeHistoHSV(img))
+    pass
+==> ./src/metrics.py <==
+import numpy as np
+from sklearn.model_selection import KFold, cross_val_score
+from src.models import extract_X, fitFrom, predictFrom
+from src.votePredict import *
+
+# Ici les fonction d'evaluations des performances des models
+
+def err_empirique(S_train: list[dict], model_trained):
+    """
+    Calcule l'erreur empirique du modèle.
+    Retourne la proportion d'erreur sur une prediction.
+    Donc S_predicted est l'echantillon sur lequel
+    le model s'est entrainé puis a fait ses predictions.
+    """
+    nb_erreurs = 0
+    total = len(S_train)
+    # On fait les predictions avec le sample qui a appris le model
+    S_predicted = predictFrom(S_train, model_trained)
+    
+    # Pour chaque img on compare la prediction a 'y_true_class'
+    for img in S_predicted:
+        if img['y_true_class'] != img['y_predicted_class']:
+            nb_erreurs += 1
+            
+    return nb_erreurs / total
+
+
+def err_real_cv(S: list[dict], model_trained):
+    """
+    Calcule l'erreur réelle par validation croisée sur l'ensemble S.
+    """
+    # Préparation des données complètes (Conversion en NumPy pour le type-checker)
+    X = extract_X(model_trained.features, S, model_trained, training=False)
+    y = np.array([img['y_true_class'] for img in S])
+    
+    # Cross-validation
+    # cross_val_score clone et entraîne sur différentes parties de X/y.
+    scores = cross_val_score(model_trained, X, y, cv=5)
+    
+    # Calcul de l'erreur
+    errors = 1 - scores
+    return errors.mean()
+    
+
+def err_empirique_vote3(S_train: list[dict], model1, model2, model3):
+    """
+    Calcule l'erreur empirique du modèle.
+    Retourne la proportion d'erreur sur une prediction.
+    Donc S_predicted est l'echantillon sur lequel
+    le model s'est entrainé puis a fait ses predictions.
+    """
+    nb_erreurs = 0
+    total = len(S_train)
+    # On fait les predictions avec le sample qui a appris le model
+    S_predicted = votePredict3(S_train, model1, model2, model3)
+    
+    # Pour chaque img on compare la prediction a 'y_true_class'
+    for img in S_predicted:
+        if img['y_true_class'] != img['y_predicted_class']:
+            nb_erreurs += 1
+            
+    return nb_erreurs / total
+
+
+def err_real_cv_vote3(S: list[dict], algo1, algo2, algo3, features: list[str], cv=5):
+    """
+    Simule une validation croisée pour le système de vote.
+    'algo1, algo2, algo3' sont les dictionnaires de config (ex: SVC, KNN).
+    'features' est la liste des features à utiliser (ex: ['X_histo'])
+    """
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    S_np = np.array(S) # Pour faciliter le slicing
+    errors = []
+
+    for train_index, test_index in kf.split(S_np):
+        # Séparation Train / Test
+        S_train = S_np[train_index].tolist()
+        S_test = S_np[test_index].tolist()
+
+        # Entraînement des 3 modèles sur S_train
+        m1 = fitFrom(features, S_train, algo1)
+        m2 = fitFrom(features, S_train, algo2)
+        m3 = fitFrom(features, S_train, algo3)
+
+        # Prédiction par vote sur S_test
+        S_voted = votePredict3(S_test, m1, m2, m3)
+
+        # Calcul de l'erreur sur ce fold
+        nb_err = 0
+        for img in S_voted:
+            # On compare y_true et y_predicted
+            if img['y_true_class'] != img['y_predicted_class']:
+                nb_err = nb_err + 1
+                
+        errors.append(nb_err / len(S_test))
+
+    return np.mean(errors)
+
+
+def err_empirique_vote5(S_train: list[dict], model1, model2, model3, model4, model5):
+    """
+    Calcule l'erreur empirique du modèle.
+    Retourne la proportion d'erreur sur une prediction.
+    Donc S_predicted est l'echantillon sur lequel
+    le model s'est entrainé puis a fait ses predictions.
+    """
+    nb_erreurs = 0
+    total = len(S_train)
+    # On fait les predictions avec le sample qui a appris le model
+    S_predicted = votePredict5(S_train, model1, model2, model3, model4, model5)
+    
+    # Pour chaque img on compare la prediction a 'y_true_class'
+    for img in S_predicted:
+        if img['y_true_class'] != img['y_predicted_class']:
+            nb_erreurs += 1
+            
+    return nb_erreurs / total
+
+def err_real_cv_vote5(S: list[dict], algo1, algo2, algo3, algo4, algo5, features: list[str], cv=5):
+    """
+    Simule une validation croisée pour le système de vote.
+    'algo1, algo2, algo3' sont les dictionnaires de config (ex: SVC, KNN).
+    'features' est la liste des features à utiliser (ex: ['X_histo'])
+    """
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    S_np = np.array(S) # Pour faciliter le slicing
+    errors = []
+
+    for train_index, test_index in kf.split(S_np):
+        # Séparation Train / Test
+        S_train = S_np[train_index].tolist()
+        S_test = S_np[test_index].tolist()
+
+        # Entraînement des 5 modèles sur S_train
+        m1 = fitFrom(features, S_train, algo1)
+        m2 = fitFrom(features, S_train, algo2)
+        m3 = fitFrom(features, S_train, algo3)
+        m4 = fitFrom(features, S_train, algo4)
+        m5 = fitFrom(features, S_train, algo5)
+
+        # Prédiction par vote sur S_test
+        S_voted = votePredict5(S_test, m1, m2, m3, m4, m5)
+
+        # Calcul de l'erreur sur ce fold
+        nb_err = 0
+        for img in S_voted:
+            # On compare y_true et y_predicted
+            if img['y_true_class'] != img['y_predicted_class']:
+                nb_err = nb_err + 1
+                
+        errors.append(nb_err / len(S_test))
+
+    return np.mean(errors)
+
+==> ./src/config.py <==
+import joblib
+from src.preprocessing import *
+from src.models import *
+from src.metrics import *
+from src.votePredict import *
+from sklearn.model_selection import GridSearchCV
+import os
+
+#
+
+NAIVE = {
+        "name" : "NaiveBayes",
+        "hyper_param" : {}
+    }
+
+# Improved KNN setup
+KNN = {
+    "name": "KNN",
+    "hyper_param": {
+        'n_neighbors': 7,            # smaller value works better for image embeddings
+        'weights': 'distance',       # closer neighbors count more
+        'metric': 'cosine'           # cosine distance often works well for high-dimensional image features
+    }
+}
+param_grid_KNN = {
+    'n_neighbors': [5, 7, 9, 11, 13],
+    'weights': ['uniform', 'distance'],
+    'metric': ['euclidean', 'manhattan', 'cosine']
+}
+
+LINEAR_SVC = {
+        "name" : "LinearSVC",
+        "hyper_param" : {
+            'C': 0.0001,
+            'dual': False,
+            'max_iter': 5000,
+            'penalty': 'l2'
+            }
+    }
+param_grid_LINEAR_SVC = {
+    'C': [0.00001, 0.0001, 0.001, 0.1], # contrôle la force de la régularisation
+    'dual': [False],
+    'penalty': ['l2'],
+    'max_iter': [5000, 10000]
+}
+
+RFC = {
+    "name": "RFC",
+    "hyper_param": {
+        'n_estimators': 200,          # more trees
+        'max_depth': None,            # allow deep trees
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',       # features considered at each split
+        'random_state': 42
+    }
+}
+param_grid_RFC = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 5],
+    'max_features': ['sqrt', 'log2']
+}
+
+GB = {
+    "name": "GB",
+    "hyper_param": {
+        'n_estimators': 300,
+        'learning_rate': 0.1,
+        'max_depth': 3,
+        'min_samples_split': 2,
+        'min_samples_leaf': 1,
+        'max_features': 'sqrt',
+        'random_state': 42
+    }
+}
+param_grid_GB = {
+    'n_estimators': [100, 300],
+    'learning_rate': [0.05, 0.1],
+    'max_depth': [3, 5],
+    'min_samples_split': [2, 10],
+    'max_features': ['sqrt'],
+    'subsample': [0.8]                   # accélère le fit en utilisant 80% des données par arbre
+}
+
+SVC_ = {
+    "name": "SVC",
+    "hyper_param": {
+        'C': 10,
+        'gamma': 'scale',
+        'kernel': 'rbf',
+        'degree': 3,
+        'class_weight': None,
+    }
+}
+param_grid_SVC = {
+    'C': [0.1, 1, 10, 100],
+    'gamma': ['scale', 'auto', 0.01],
+    'kernel': ['rbf', 'poly'],
+    'degree': [3],
+    'class_weight': [None, 'balanced']
+}
+
+def hyper_param_research(features_to_use: list[str], S: list[dict], model,param_grid: dict):
+    # Avant de lancer cette fonction il faut :
+    # définir la grille des paramètres à tester
+    # initialiser le modèle de base
+
+    # On configure la recherche (cv=5 signifie qu'il divise le set d'images en 5 morceaux)
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid,
+                            cv=5, scoring='accuracy', n_jobs=-1, verbose=2,
+                            return_train_score=True)
+
+    # On extrait X et y
+    X_train = extract_X(features_to_use, S, model, training=True)
+    y_train = np.array([img['y_true_class'] for img in S])
+
+    # On fit sur (X_train, y_train)
+    grid_search.fit(X_train, y_train)
+
+    # On récupère les meilleurs paramètres
+    results = grid_search.cv_results_
+
+    best_idx = grid_search.best_index_
+
+    optimal_params = results['params'][best_idx]
+
+    print("\n--- Paramètres Optimaux (Robustes) ---")
+    print(f"Paramètres : {optimal_params}")
+    print(f"Validation Score : {results['mean_test_score'][best_idx]:.2%}")
+    print(f"Overfit Gap : {(results['mean_train_score'][best_idx] - results['mean_test_score'][best_idx]):.2%}")
+
+    return optimal_params
+
+==> ./src/votePredict.py <==
+import copy
+
+from src.models import predictFrom
+
+def votePredict3(S: list[dict], model1, model2, model3) -> list[dict]:
+    """
+    Effectue une prédiction basée sur le vote majoritaire de 3 modèles.
+    Modifie S en place et met à jour 'y_predicted_class'.
+    """
+    
+    # On récupère les prédictions de chaque modèle séparément
+    res1 = predictFrom(copy.deepcopy(S), model1)
+    res2 = predictFrom(copy.deepcopy(S), model2)
+    res3 = predictFrom(copy.deepcopy(S), model3)
+
+    # On compare les résultats pour chaque image
+    for i in range(len(S)):
+        p1 = res1[i]['y_predicted_class']
+        p2 = res2[i]['y_predicted_class']
+        p3 = res3[i]['y_predicted_class']
+        
+        # Vote majoritaire : 
+        # Si on a deux +1, la somme sera >= 1
+        # Si on a deux -1, la somme sera <= -1
+        vote_final = 1 if (p1 + p2 + p3) >= 1 else -1
+        
+        # On met à jour l'échantillon original
+        S[i]['y_predicted_class'] = vote_final
+
+    return S
+
+def votePredict5(S: list[dict], model1, model2, model3, model4, model5) -> list[dict]:
+    """
+    Effectue une prédiction basée sur le vote majoritaire de 3 modèles.
+    Modifie S en place et met à jour 'y_predicted_class'.
+    """
+    
+    # On récupère les prédictions de chaque modèle séparément
+    res1 = predictFrom(copy.deepcopy(S), model1)
+    res2 = predictFrom(copy.deepcopy(S), model2)
+    res3 = predictFrom(copy.deepcopy(S), model3)
+    res4 = predictFrom(copy.deepcopy(S), model4)
+    res5 = predictFrom(copy.deepcopy(S), model5)
+
+    # On compare les résultats pour chaque image
+    for i in range(len(S)):
+        p1 = res1[i]['y_predicted_class']
+        p2 = res2[i]['y_predicted_class']
+        p3 = res3[i]['y_predicted_class']
+        p4 = res4[i]['y_predicted_class']
+        p5 = res5[i]['y_predicted_class']
+        
+        # Vote majoritaire : 
+        # Si on a au moins trois +1, la somme sera >= 1
+        # Si on a au moins trois -1, la somme sera <= -1
+        vote_final = 1 if (p1 + p2 + p3 + p4 + p5) >= 1 else -1
+        
+        # On met à jour l'échantillon original
+        S[i]['y_predicted_class'] = vote_final
+
+    return S
+
+if __name__ == '__main__':
+    pass
+==> ./src/utils.py <==
+
+
+# TODO ici mettre les fonctions utilitaires
+==> ./src/secondVotePredict.py <==
